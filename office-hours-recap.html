@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>formloop — Office hours recap (2026-05-10)</title>
+<style>
+  :root {
+    --ink: #0f172a;
+    --ink-soft: #334155;
+    --ink-mute: #64748b;
+    --line: #e2e8f0;
+    --bg: #fafafa;
+    --card: #ffffff;
+    --accent: #6366f1;
+    --accent-soft: #eef2ff;
+    --amber: #f59e0b;
+    --amber-soft: #fef3c7;
+    --green: #10b981;
+    --green-soft: #d1fae5;
+    --red: #ef4444;
+    --red-soft: #fee2e2;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  main {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 48px 32px 96px;
+  }
+  header {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 24px;
+    margin-bottom: 40px;
+  }
+  .eyebrow {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  h1 {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 8px;
+    line-height: 1.15;
+  }
+  .meta {
+    color: var(--ink-mute);
+    font-size: 14px;
+  }
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 48px 0 16px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+  }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+  h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 24px 0 8px;
+    color: var(--ink);
+  }
+  p { margin: 0 0 12px; color: var(--ink-soft); }
+  ul { margin: 0 0 16px; padding-left: 22px; color: var(--ink-soft); }
+  li { margin-bottom: 6px; }
+  strong { color: var(--ink); font-weight: 600; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.92em;
+    background: #f1f5f9;
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+  .tagline {
+    margin: 24px 0;
+    padding: 24px 28px;
+    background: var(--accent-soft);
+    border-left: 4px solid var(--accent);
+    border-radius: 4px;
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.4;
+  }
+  .tagline .label {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+  .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  @media (max-width: 700px) {
+    .grid, .grid-3 { grid-template-columns: 1fr; }
+    main { padding: 32px 20px 64px; }
+    h1 { font-size: 28px; }
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .card.amber { background: var(--amber-soft); border-color: #fcd34d; }
+  .card.green { background: var(--green-soft); border-color: #86efac; }
+  .card .title {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+  .card .body {
+    font-size: 13px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+  }
+  .premises {
+    display: grid;
+    gap: 10px;
+    margin: 16px 0;
+  }
+  .premise {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 16px;
+    padding: 14px 16px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    align-items: start;
+  }
+  .premise .num {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 10px;
+    border-radius: 6px;
+    text-align: center;
+    width: fit-content;
+  }
+  .premise .text { font-size: 14px; color: var(--ink-soft); }
+  .premise .text strong { color: var(--ink); }
+  .paths {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin: 20px 0;
+  }
+  @media (max-width: 700px) { .paths { grid-template-columns: 1fr; } }
+  .path {
+    padding: 18px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    position: relative;
+  }
+  .path.chosen {
+    background: var(--amber-soft);
+    border-color: #fbbf24;
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.15);
+  }
+  .path .badge {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-mute);
+    margin-bottom: 6px;
+  }
+  .path.chosen .badge { color: #b45309; font-weight: 700; }
+  .path h4 { font-size: 15px; font-weight: 600; margin: 0 0 8px; }
+  .path .duration { font-size: 12px; color: var(--ink-mute); margin-bottom: 10px; }
+  .path .summary { font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
+  .assignment {
+    margin: 24px 0;
+    padding: 28px 32px;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    color: #f8fafc;
+    border-radius: 12px;
+  }
+  .assignment .eyebrow { color: #fbbf24; margin-bottom: 12px; }
+  .assignment h2 {
+    color: #f8fafc;
+    margin: 0 0 12px;
+    border: none;
+    padding: 0;
+    font-size: 24px;
+  }
+  .assignment p { color: #cbd5e1; }
+  .assignment strong { color: #fff; }
+  .assignment ol {
+    color: #cbd5e1;
+    padding-left: 22px;
+    margin: 16px 0 0;
+  }
+  .assignment ol li { margin-bottom: 10px; }
+  .dm-draft {
+    background: #0b1220;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin-top: 16px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #cbd5e1;
+    white-space: pre-wrap;
+  }
+  .timeline {
+    display: grid;
+    gap: 8px;
+    margin: 16px 0;
+  }
+  .week {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 16px;
+    align-items: start;
+    padding: 12px 16px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .week .label {
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding-top: 2px;
+  }
+  .week .desc { font-size: 14px; color: var(--ink-soft); }
+  .week .desc strong { color: var(--ink); }
+  .observations {
+    display: grid;
+    gap: 8px;
+    margin: 16px 0;
+  }
+  .obs {
+    padding: 14px 16px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+  }
+  .obs strong { color: var(--ink); }
+  .risks { margin: 16px 0; }
+  .risk {
+    padding: 14px 16px;
+    background: var(--red-soft);
+    border-left: 3px solid var(--red);
+    border-radius: 4px;
+    margin-bottom: 10px;
+    font-size: 13.5px;
+    color: #7f1d1d;
+  }
+  .risk strong { color: #7f1d1d; }
+  .risk .mitig {
+    display: block;
+    margin-top: 4px;
+    color: #991b1b;
+    font-size: 12.5px;
+  }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    font-size: 12px;
+    color: var(--ink-mute);
+    text-align: center;
+  }
+  footer a { color: var(--ink-mute); }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <div class="eyebrow">Office hours · GStack /office-hours</div>
+  <h1>formloop — Récap de session</h1>
+  <p class="meta">2026-05-10 · Mode startup recalibré en narrative-asset · Path C lockée</p>
+</header>
+
+<h2>Le pitch en une phrase</h2>
+<div class="tagline">
+  <span class="label">Tagline retenue</span>
+  Du visuel pour du développement de choses visuelles, dans un terminal non visuel.
+</div>
+<p>
+  formloop est une couche fine entre un agent LLM et un humain dans la loop. L'agent
+  génère à la volée un formulaire de qualité Typeform (drag-and-drop, grilles de mockups
+  cliquables, sliders avec preview HTML), l'envoie à l'humain, et reprend l'exécution
+  dès la soumission.
+</p>
+
+<h2>Goal recalibré</h2>
+<div class="grid">
+  <div class="card">
+    <div class="title">Ce qu'on cherche</div>
+    <div class="body">
+      Un <strong>asset narratif</strong> pour Jérôme + Manibor. La métrique : tu deviens
+      connu dans l'écosystème AI builder. Followers, citations, mentions montent
+      durablement.
+    </div>
+  </div>
+  <div class="card">
+    <div class="title">Ce qu'on ne cherche pas</div>
+    <div class="body">
+      Revenue. Moat produit durable. Une roadmap année 2. Anthropic / OpenAI absorberont
+      le pattern dans 3-12 mois, et c'est OK.
+    </div>
+  </div>
+</div>
+
+<h2>Les 6 prémisses validées</h2>
+<div class="premises">
+  <div class="premise">
+    <div class="num">P1</div>
+    <div class="text"><strong>Goal = asset narratif</strong> pour Jérôme + Manibor. Pas revenue, pas moat durable.</div>
+  </div>
+  <div class="premise">
+    <div class="num">P2</div>
+    <div class="text"><strong>Hero unique = html-pick</strong> avec 3 mockups. Toutes les autres features sont supporting cast.</div>
+  </div>
+  <div class="premise">
+    <div class="num">P3</div>
+    <div class="text"><strong>Validation demande avant viral.</strong> Compressée : cold DM Thariq = test à signal très haut.</div>
+  </div>
+  <div class="premise">
+    <div class="num">P4</div>
+    <div class="text"><strong>Deux voies seulement</strong>, full viral ou polish minimal. Pas de demi-launch tiède.</div>
+  </div>
+  <div class="premise">
+    <div class="num">P5</div>
+    <div class="text"><strong>Fenêtre 3-12 mois.</strong> Aucun plan au-delà. Maintenance minimisée dès J0.</div>
+  </div>
+  <div class="premise">
+    <div class="num">P6</div>
+    <div class="text"><strong>Distribution = workstream parallèle.</strong> X anglo créé cette semaine, LinkedIn AI builder mode, GitHub profil léché, amplifiers identifiés.</div>
+  </div>
+</div>
+
+<h2>Les 3 chemins considérés</h2>
+<div class="paths">
+  <div class="path">
+    <div class="badge">Option A</div>
+    <h4>Solo blast</h4>
+    <div class="duration">1-2 semaines</div>
+    <div class="summary">
+      Polish minimal, launch direct Show HN + LinkedIn FR. Mismatch structurel
+      avec le goal anglo. Probable plateau 200-500 stars.
+    </div>
+  </div>
+  <div class="path">
+    <div class="badge">Option B</div>
+    <h4>Audience-first</h4>
+    <div class="duration">6 semaines</div>
+    <div class="summary">
+      3 sem build audience X anglo, 2 sem produit, 1 sem launch coordonné. Floor
+      et ceiling plus hauts, mais risque burnout sur 3 sem de discipline avant
+      visible.
+    </div>
+  </div>
+  <div class="path chosen">
+    <div class="badge">★ Option C — retenue</div>
+    <h4>Amplifier-backed</h4>
+    <div class="duration">4-5 semaines</div>
+    <div class="summary">
+      Cold DM Thariq Shihipar en sem 1. Polish produit en parallèle. Launch
+      coordonné où Thariq tweet en premier, Show HN suit. 50x l'audience pour
+      le même effort produit que A.
+    </div>
+  </div>
+</div>
+
+<section class="assignment">
+  <div class="eyebrow">L'assignment · 48h</div>
+  <h2>Avant lundi soir</h2>
+  <p>
+    Tant que ces deux choses ne sont pas faites, <strong>aucun polish produit</strong>.
+    Path C dépend de Thariq + d'une présence X qui existe.
+  </p>
+  <ol>
+    <li><strong>Envoyer le cold DM à Thariq Shihipar</strong> (X/Twitter ou email). Brouillon ci-dessous.</li>
+    <li><strong>Créer le compte X anglo</strong> <code>@jeromebornstejn</code> (ou variante dispo). Bio + photo + 1 post fondateur "what I'm working on this month".</li>
+  </ol>
+  <div class="dm-draft">Hey Thariq —
+
+Your "Unreasonable Effectiveness of HTML" article is the reason
+I built a thing this week. Short version: it's a layer that lets
+LLM agents ask humans visual questions (drag-drop, mockup grids,
+sliders with live previews) instead of being stuck in chat. The
+agent generates a Typeform-quality form on the fly, the human
+fills it, the agent resumes. Built it because I caught myself
+using Tally to "talk" to Claude Code — same pattern you named.
+
+Live demo (open from any browser, no signup):
+https://tally-bridge-manibors-projects.vercel.app/forms/4gJZtU3g5h
+
+POC works, deciding whether to OSS it properly. Would love your
+eyes for 3 minutes before I do anything public — what feels
+right, what feels off, what would make you yawn.
+
+If you're slammed, no worries.
+
+Jerome</div>
+</section>
+
+<h2>Timeline 4-5 semaines (Path C)</h2>
+<div class="timeline">
+  <div class="week">
+    <div class="label">J0 → J+2</div>
+    <div class="desc"><strong>L'assignment.</strong> Cold DM Thariq + compte X créé. Rien d'autre.</div>
+  </div>
+  <div class="week">
+    <div class="label">Semaine 1</div>
+    <div class="desc"><strong>Réponse Thariq.</strong> Si yes → on calibre. Si pas de réponse à J+5 → relance courte. À J+8 sans réponse → bascule sur 2-3 amplifiers secondaires (à identifier nominativement avant cette semaine).</div>
+  </div>
+  <div class="week">
+    <div class="label">Sem 1-4</div>
+    <div class="desc"><strong>Polish produit parallèle.</strong> Découpler hardcoded URLs, TypeScript SDK, Docker compose, profil GitHub léché, domaine formloop.dev, README hero avec GIF html-pick, landing minimale. CI sur GitHub Actions.</div>
+  </div>
+  <div class="week">
+    <div class="label">Sem 1-4</div>
+    <div class="desc"><strong>X seedé légèrement.</strong> 3-4 posts/sem (pas 1/jour). Build-in-public formloop, threads techniques sur le pattern agent-asking-human. Pas obsession audience.</div>
+  </div>
+  <div class="week">
+    <div class="label">Sem 4-5</div>
+    <div class="desc"><strong>Launch coordonné.</strong> Thariq tweet en premier (briefé au préalable). Tu retweet avec contexte. Show HN posé Tuesday-Thursday matin US. LinkedIn FR + EN. DMs ciblés aux secondaires.</div>
+  </div>
+  <div class="week">
+    <div class="label">J+30</div>
+    <div class="desc"><strong>Mesure.</strong> ≥800 stars = succès clair · 400-800 = modeste · &lt;400 = floc. ≥1000 X followers. ≥3 mentions newsletters/podcasts. ≥1 conversation entrante Anthropic/OpenAI/Vercel devrel.</div>
+  </div>
+</div>
+
+<h2>Risques principaux + mitigations</h2>
+<div class="risks">
+  <div class="risk">
+    <strong>Thariq ghoste.</strong> Path C dépend d'une personne.
+    <span class="mitig">Mitigation : avoir 2-3 amplifiers secondaires (HumanLayer team, Anthropic devrel, Vercel devrel) identifiés nominativement avant la sem 1. Si Thariq ne répond pas à J+8 après relance, bascule automatique.</span>
+  </div>
+  <div class="risk">
+    <strong>Audience X anglo trop maigre au launch.</strong> Tu démarres de zéro, 4 semaines de seeding c'est court.
+    <span class="mitig">Mitigation : ne pas dépendre de TON audience pour l'amorçage — c'est Thariq qui amorce. Le X anglo est pour CAPTURER le trafic post-launch, pas pour le générer.</span>
+  </div>
+  <div class="risk">
+    <strong>Tu galères en EN sur les threads X.</strong> Si tu n'es pas natif, friction hebdomadaire.
+    <span class="mitig">Mitigation : pass éditorial par Claude ou un ami anglo. À résoudre en sem 1, pas en sem 3.</span>
+  </div>
+  <div class="risk">
+    <strong>Anthropic shippe AskUserQuestion riche pendant les 4 semaines.</strong> Tu launches dans un produit qui vient d'être rendu obsolète.
+    <span class="mitig">Mitigation : surveillance hebdo des changelogs Anthropic / OpenAI Assistants. Si signal d'absorption imminente (annonce, roadmap publique), tu accélères le launch et tu pivotes le pitch sur "framework-agnostic, self-hostable" — angle que le natif ne couvre pas.</span>
+  </div>
+</div>
+
+<h2>Observations UX du dogfood (à capitaliser)</h2>
+<div class="observations">
+  <div class="obs"><strong>Cognitive load réduit, validé.</strong> Tu m'as dit verbatim "j'ai du mal à visualiser les 6 prémisses" en chat → form rempli en 30 secondes sans friction. Validation directe du value prop de formloop.</div>
+  <div class="obs"><strong>Choix recommandé retenu 3/3.</strong> Soit les recos étaient bonnes (positif), soit le label "(recommandé)" exerce trop de pull. À tester avec un user dont les goals divergent : est-ce qu'il suit quand même la reco ? Si oui → biais UX à corriger.</div>
+  <div class="obs"><strong>Textarea "nuances" ignoré 2/2.</strong> Soit pas nécessaire, soit intimidant ("je dois écrire long ?"), soit pas vu. Possible amélioration : rendre plus visiblement optionnel ou plus court visuellement.</div>
+  <div class="obs"><strong>html-pick a tenu sur les 3 cards stratégiques.</strong> Le hero feature n'a pas frotté quand on a pris la décision la plus importante de la session. Confirmation indirecte qu'il mérite sa place hero.</div>
+</div>
+
+<h2>Founder signals notés sur la session</h2>
+<ul>
+  <li><strong>Push-back avec conviction</strong> (deux fois) : tu corriges les briefs au lieu de les ingurgiter — pattern fondateur.</li>
+  <li><strong>Self-observation de paralysie</strong> : tu as nommé ta propre friction et proposé d'utiliser le produit dessus. Tu vis ton propre product-market fit.</li>
+  <li><strong>Bonne formule en deux essais</strong> : "Du visuel pour du développement de choses visuelles dans un terminal non visuel" — sortie sans la peser. Garde-la.</li>
+  <li><strong>Honnêteté sur l'absence de validation</strong> : "personne n'a émis l'idée parce que je n'ai pas discuté des frictions" — rare, et c'est ce qui rend la session utile.</li>
+</ul>
+
+<footer>
+  Design doc complet · <code>~/.gstack/projects/borenstejn-formloop/jeromeborenstejn-master-design-20260510-134841.md</code><br/>
+  Généré par <code>/office-hours</code> (gstack) le 2026-05-10 · formloop est OSS sous MIT
+</footer>
+
+</main>
+</body>
+</html>

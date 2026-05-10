@@ -27,3 +27,6 @@ next-env.d.ts
 .vercel
 .cache/
 coverage/
+.venv/
+venv/
+.playwright-mcp/
