@@ -1,8 +1,27 @@
+export type InlineCommentField = {
+  id: string;
+  placeholder?: string;
+  /** Label shown above the textarea (default: "Commentaire (optionnel)") */
+  label?: string;
+};
+
 export type BaseQuestion = {
   id: string;
   title: string;
   description?: string;
   required?: boolean;
+  /**
+   * Rich HTML rendered between the title and the question widget on the same slide.
+   * Use for illustrations, code samples, mockups, context.
+   * Sanitized via DOMPurify (same rules as html blocks).
+   */
+  headerHtml?: string;
+  /**
+   * Optional inline comment textarea rendered AFTER the question widget on the same slide.
+   * Its value is stored in answers[comment.id] alongside the main question answer.
+   * Always optional (never required).
+   */
+  comment?: InlineCommentField;
 };
 
 export type McQuestion = BaseQuestion & {

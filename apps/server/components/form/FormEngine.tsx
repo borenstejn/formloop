@@ -18,6 +18,7 @@ import { HtmlBlockView } from "./views/HtmlBlockView";
 import { HtmlPickView } from "./views/HtmlPickView";
 import { RankView } from "./views/RankView";
 import { ScalePreviewView } from "./views/ScalePreviewView";
+import { HtmlSafe } from "./HtmlSafe";
 
 type Direction = 1 | -1;
 
@@ -281,6 +282,13 @@ function BlockView({
   const onChange = (v: AnswerValue) => setAnswer(block.id, v);
   const props = { value, onChange, onAdvance };
 
+  const hasHeader = !!block.headerHtml;
+  const hasComment = !!block.comment;
+  const commentValue =
+    hasComment && typeof answers[block.comment!.id] === "string"
+      ? (answers[block.comment!.id] as string)
+      : "";
+
   return (
     <div>
       <h2
@@ -289,7 +297,7 @@ function BlockView({
           fontWeight: 500,
           lineHeight: 1.25,
           marginTop: 0,
-          marginBottom: block.description ? 12 : 28,
+          marginBottom: hasHeader || block.description ? 12 : 28,
           letterSpacing: "-0.01em",
         }}
       >
@@ -305,11 +313,17 @@ function BlockView({
             fontSize: 16,
             lineHeight: 1.55,
             marginTop: 0,
-            marginBottom: 28,
+            marginBottom: hasHeader ? 16 : 28,
           }}
         >
           {block.description}
         </p>
+      )}
+
+      {hasHeader && (
+        <div style={{ marginBottom: 28 }}>
+          <HtmlSafe html={block.headerHtml!} />
+        </div>
       )}
 
       {block.kind === "mc" && <McView {...props} question={block} />}
@@ -323,6 +337,46 @@ function BlockView({
       {block.kind === "rank" && <RankView {...props} question={block} />}
       {block.kind === "scale-preview" && (
         <ScalePreviewView {...props} question={block} />
+      )}
+
+      {hasComment && (
+        <div style={{ marginTop: 28 }}>
+          <label
+            htmlFor={`comment-${block.comment!.id}`}
+            style={{
+              display: "block",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "var(--color-muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              marginBottom: 8,
+            }}
+          >
+            {block.comment!.label ?? "Commentaire (optionnel)"}
+          </label>
+          <textarea
+            id={`comment-${block.comment!.id}`}
+            value={commentValue}
+            onChange={(e) => setAnswer(block.comment!.id, e.target.value)}
+            placeholder={block.comment!.placeholder ?? ""}
+            rows={3}
+            className="tf-input"
+            style={{
+              width: "100%",
+              resize: "vertical",
+              minHeight: 80,
+              fontFamily: "inherit",
+              fontSize: 15,
+              lineHeight: 1.5,
+              padding: "10px 14px",
+              borderRadius: 8,
+              border: "1px solid var(--color-subtle)",
+              background: "var(--color-card)",
+              color: "var(--color-fg)",
+            }}
+          />
+        </div>
       )}
     </div>
   );
