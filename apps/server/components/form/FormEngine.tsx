@@ -238,7 +238,11 @@ export function FormEngine({ formId, spec }: { formId: string; spec: FormSpec })
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: direction === 1 ? -40 : 40 }}
             transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-            className="tf-question"
+            className={
+              spec.layout === "split" && !isOnRespondentSlide && currentBlock?.kind !== "html"
+                ? "tf-question tf-question--split"
+                : "tf-question"
+            }
           >
             {isOnRespondentSlide ? (
               <RespondentSlide

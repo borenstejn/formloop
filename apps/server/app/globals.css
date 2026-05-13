@@ -162,6 +162,11 @@ html, body {
   width: 100%;
 }
 
+/* Wider container for split-layout slides — two columns need more room */
+.tf-question--split {
+  max-width: 1280px;
+}
+
 /* Embedded HTML safe rendering */
 .tf-html-block {
   margin: 1.5rem 0;
