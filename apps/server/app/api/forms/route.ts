@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { redis, specKey, SPEC_TTL_SECONDS } from "@/lib/redis";
 import { checkSecret } from "@/lib/auth";
 import { generateFormId } from "@/lib/id";
-import type { FormSpec, Block } from "@/lib/types";
+import type { FormSpec, Block, RespondentField } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +21,12 @@ const VALID_KINDS = new Set([
   "scale-preview",
 ]);
 
+function validateRespondentField(rf: unknown): rf is RespondentField {
+  if (!rf || typeof rf !== "object") return false;
+  const r = rf as Record<string, unknown>;
+  return r.type === "email-name";
+}
+
 function validateSpec(spec: unknown): spec is FormSpec {
   if (!spec || typeof spec !== "object") return false;
   const s = spec as Record<string, unknown>;
@@ -33,6 +39,12 @@ function validateSpec(spec: unknown): spec is FormSpec {
       const q = block as { id?: string; title?: string };
       if (typeof q.title !== "string" || !q.title.trim()) return false;
     }
+  }
+  if (s.respondentField !== undefined && !validateRespondentField(s.respondentField)) {
+    return false;
+  }
+  if (s.persistent !== undefined && typeof s.persistent !== "boolean") {
+    return false;
   }
   return true;
 }
@@ -62,6 +74,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid spec" }, { status: 400 });
   }
 
+  const isPersistent = spec.persistent === true;
+
   const normalizedSpec: FormSpec = {
     ...spec,
     blocks: ensureIds(spec.blocks),
@@ -69,9 +83,16 @@ export async function POST(req: NextRequest) {
   };
 
   const formId = generateFormId();
-  await redis.set(specKey(formId), JSON.stringify(normalizedSpec), {
-    ex: SPEC_TTL_SECONDS,
-  });
+
+  // Persistent forms: store spec without TTL (frozen forever).
+  // Ephemeral forms (default): legacy 24h TTL.
+  if (isPersistent) {
+    await redis.set(specKey(formId), JSON.stringify(normalizedSpec));
+  } else {
+    await redis.set(specKey(formId), JSON.stringify(normalizedSpec), {
+      ex: SPEC_TTL_SECONDS,
+    });
+  }
 
   const origin =
     process.env.PUBLIC_BRIDGE_URL ??
@@ -80,6 +101,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     form_id: formId,
     form_url: `${origin}/forms/${formId}`,
-    expires_in_seconds: SPEC_TTL_SECONDS,
+    persistent: isPersistent,
+    expires_in_seconds: isPersistent ? null : SPEC_TTL_SECONDS,
   });
 }
