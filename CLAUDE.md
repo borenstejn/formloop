@@ -33,7 +33,8 @@ After validating the concept end-to-end, Jérôme decided to turn it into an OSS
 formloop/
 ├── apps/
 │   └── server/          ← Next.js 16 app (form engine + API endpoints)
-│                          Was originally `~/PERSONNEL/Code/tally-bridge/`.
+│                          Vercel project: `manibors-projects/formloop`.
+│                          (Renamed from `tally-bridge` on 2026-05-13.)
 ├── packages/
 │   ├── sdk-python/      ← Python driver `ask_form.py` (create, wait, cleanup)
 │   └── sdk-typescript/  ← TODO — TypeScript SDK for Node/browser agents
@@ -62,10 +63,14 @@ formloop/
   - 10 question types, all tested end-to-end via `apps/server/test-e2e.sh`.
 
 - **`packages/sdk-python/ask_form.py`** — working CLI:
-  - `create-custom --spec '{...}'` → creates a custom form on the formloop server, returns `{form_id, form_url}`
+  - `create-custom --spec '{...}'` → creates a form (ephemeral or persistent), returns `{form_id, form_url, persistent}`
   - `create --spec '{...}'` → legacy Tally form mode (still functional, kept for now)
-  - `wait --form-id <id> [--timeout 1800]` → polls until submitted, returns answers
+  - `wait --form-id <id> [--timeout 1800]` → polls for a single ephemeral response, returns answers
+  - `list-submissions --form-id <id>` → list all submissions of a persistent form (JSON)
+  - `export-csv --form-id <id> [--output path]` → CSV export of a persistent form
+  - `wait-n --form-id <id> --n N [--timeout 1800]` → poll a persistent form until at least N submissions land
   - `cleanup --form-id <id>` → deletes the form (Tally only)
+  - URL + secret overridable via `FORMLOOP_BRIDGE_URL` / `FORMLOOP_WEBHOOK_SECRET` env vars.
 
 - **Demo URL** (live for ~24h after creation, valid until 2026-05-10):
   `https://tally-bridge-manibors-projects.vercel.app/forms/PG3cmELG6d`
@@ -163,22 +168,23 @@ pnpm dev       # http://localhost:3000
 # Python SDK
 cd packages/sdk-python
 python ask_form.py --help
-# Note: BRIDGE_URL and WEBHOOK_SECRET hardcoded inside ask_form.py
-# (this is one of the things to fix for OSS — see ROADMAP)
+# Defaults to the production formloop URL + secret, but both are overridable:
+#   FORMLOOP_BRIDGE_URL=https://...   FORMLOOP_WEBHOOK_SECRET=...   python ask_form.py ...
 ```
 
 ## How to deploy (today)
 
-The `apps/server/` directory is linked to the Vercel project `manibors-projects/tally-bridge` (legacy name from before the rename). For the OSS launch we'll need to:
+The `apps/server/` directory is linked to the Vercel project
+`manibors-projects/formloop` (renamed from `tally-bridge` on 2026-05-13 — the
+old `tally-bridge.vercel.app` alias is preserved for now). The Upstash Redis
+integration was carried over by the rename, no env migration needed.
 
-1. Either rename the Vercel project to `formloop`,
-2. Or create a new Vercel project and migrate the Upstash Redis instance.
-
-For now, deploys go via:
 ```bash
 cd apps/server
 vercel deploy --prod
 ```
+
+After the next prod deploy, the canonical URL becomes `formloop.vercel.app`.
 
 ## Personal context (Jérôme)
 
@@ -194,8 +200,8 @@ vercel deploy --prod
 
 ## Useful pointers
 
-- **Original Vercel deployment**: `https://tally-bridge-manibors-projects.vercel.app`
-- **Vercel project**: `manibors-projects/tally-bridge` (in his org `manibors-projects`)
+- **Vercel deployment**: `https://tally-bridge.vercel.app` (legacy alias, still active) → will become `https://formloop.vercel.app` on next prod deploy
+- **Vercel project**: `manibors-projects/formloop` (renamed from `tally-bridge` on 2026-05-13)
 - **Upstash Redis dashboard**: `https://vercel.com/d/dashboard/integrations/upstash/icfg_vmuw26bcg9RrwXh5TzUrbwYN/resources/store_GLsTGBeDgPQpQef0`
 - **Original Tally token** (used by legacy path): inside `~/.claude/skills/tally-forms/scripts/tally.py`
 - **Local skill**: `~/.claude/skills/ask-form/` (still works against the live deployment)

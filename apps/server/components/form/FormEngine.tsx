@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, ArrowRight, Loader2 } from "lucide-react";
-import type { FormSpec, Block, Question } from "@/lib/types";
+import type { FormSpec, Block, Question, Respondent } from "@/lib/types";
 import type { Answers, AnswerValue } from "./types";
 import { isQuestion, isAnswered } from "./types";
 import { McView } from "./views/McView";
@@ -22,26 +22,50 @@ import { HtmlSafe } from "./HtmlSafe";
 
 type Direction = 1 | -1;
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function FormEngine({ formId, spec }: { formId: string; spec: FormSpec }) {
   const router = useRouter();
+  const hasRespondentSlide = !!spec.respondentField;
+  const respondentRequired =
+    hasRespondentSlide && (spec.respondentField!.required ?? true);
+
+  // When a respondent slide is needed, it sits before the spec blocks at index 0.
+  // The first content block becomes index 1, etc.
+  const respondentOffset = hasRespondentSlide ? 1 : 0;
+
   const [index, setIndex] = useState(0);
   const [direction, setDirection] = useState<Direction>(1);
   const [answers, setAnswers] = useState<Answers>({});
+  const [respondent, setRespondent] = useState<Respondent>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const blocks = spec.blocks;
+  const totalSlides = blocks.length + respondentOffset;
   const totalQuestions = blocks.filter(isQuestion).length;
   const answeredQuestionsCount = Object.keys(answers).filter((k) =>
     isAnswered(blocks.find((b) => isQuestion(b) && b.id === k) as Question, answers[k]),
   ).length;
 
-  const currentBlock: Block = blocks[index];
-  const isLast = index === blocks.length - 1;
+  const isOnRespondentSlide = hasRespondentSlide && index === 0;
+  const currentBlock: Block | null = isOnRespondentSlide
+    ? null
+    : blocks[index - respondentOffset];
+  const isLast = index === totalSlides - 1;
   const isFirst = index === 0;
 
+  const respondentValid = (() => {
+    if (!hasRespondentSlide) return true;
+    if (!respondentRequired) return true;
+    const name = (respondent.name ?? "").trim();
+    const email = (respondent.email ?? "").trim();
+    return name.length > 0 && EMAIL_RE.test(email);
+  })();
+
   const isCurrentValid = (() => {
-    if (!isQuestion(currentBlock)) return true;
+    if (isOnRespondentSlide) return respondentValid;
+    if (!currentBlock || !isQuestion(currentBlock)) return true;
     const required = currentBlock.required ?? true;
     if (!required) return true;
     return isAnswered(currentBlock, answers[currentBlock.id]);
@@ -51,8 +75,8 @@ export function FormEngine({ formId, spec }: { formId: string; spec: FormSpec })
     if (!isCurrentValid) return;
     if (isLast) return;
     setDirection(1);
-    setIndex((i) => Math.min(i + 1, blocks.length - 1));
-  }, [isCurrentValid, isLast, blocks.length]);
+    setIndex((i) => Math.min(i + 1, totalSlides - 1));
+  }, [isCurrentValid, isLast, totalSlides]);
 
   const goPrev = useCallback(() => {
     if (isFirst) return;
@@ -64,14 +88,31 @@ export function FormEngine({ formId, spec }: { formId: string; spec: FormSpec })
     setAnswers((curr) => ({ ...curr, [id]: value }));
   }, []);
 
+  const setRespondentField = useCallback(
+    (field: "name" | "email", value: string) => {
+      setRespondent((curr) => ({ ...curr, [field]: value }));
+    },
+    [],
+  );
+
   const submit = useCallback(async () => {
     setSubmitting(true);
     setError(null);
     try {
+      const payload: {
+        answers: Answers;
+        respondent?: Respondent;
+      } = { answers };
+      if (hasRespondentSlide) {
+        const r: Respondent = {};
+        if (respondent.name?.trim()) r.name = respondent.name.trim();
+        if (respondent.email?.trim()) r.email = respondent.email.trim();
+        if (r.name || r.email) payload.respondent = r;
+      }
       const res = await fetch(`/api/forms/${formId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -82,7 +123,7 @@ export function FormEngine({ formId, spec }: { formId: string; spec: FormSpec })
       setError(e instanceof Error ? e.message : "Submit failed");
       setSubmitting(false);
     }
-  }, [answers, formId, router]);
+  }, [answers, respondent, hasRespondentSlide, formId, router]);
 
   // Global keyboard nav
   useEffect(() => {
@@ -164,7 +205,7 @@ export function FormEngine({ formId, spec }: { formId: string; spec: FormSpec })
       >
         <span style={{ fontWeight: 500 }}>{spec.title}</span>
         <span style={{ fontVariantNumeric: "tabular-nums" }}>
-          {index + 1} / {blocks.length}
+          {index + 1} / {totalSlides}
         </span>
       </header>
 
@@ -189,12 +230,21 @@ export function FormEngine({ formId, spec }: { formId: string; spec: FormSpec })
             transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
             className="tf-question"
           >
-            <BlockView
-              block={currentBlock}
-              answers={answers}
-              setAnswer={setAnswer}
-              onAdvance={goNext}
-            />
+            {isOnRespondentSlide ? (
+              <RespondentSlide
+                spec={spec}
+                respondent={respondent}
+                setRespondentField={setRespondentField}
+                onAdvance={goNext}
+              />
+            ) : (
+              <BlockView
+                block={currentBlock!}
+                answers={answers}
+                setAnswer={setAnswer}
+                onAdvance={goNext}
+              />
+            )}
           </motion.div>
         </AnimatePresence>
       </section>
@@ -378,6 +428,140 @@ function BlockView({
           />
         </div>
       )}
+    </div>
+  );
+}
+
+function RespondentSlide({
+  spec,
+  respondent,
+  setRespondentField,
+  onAdvance,
+}: {
+  spec: FormSpec;
+  respondent: Respondent;
+  setRespondentField: (field: "name" | "email", value: string) => void;
+  onAdvance: () => void;
+}) {
+  const rf = spec.respondentField!;
+  const nameLabel = rf.nameLabel ?? "Votre nom";
+  const emailLabel = rf.emailLabel ?? "Votre email";
+  const intro =
+    rf.intro ??
+    "Avant de commencer — qui répond ? On garde ça pour pouvoir relier ta réponse aux autres et te recontacter si besoin.";
+
+  return (
+    <div>
+      <h2
+        style={{
+          fontSize: "clamp(1.5rem, 3vw, 2.25rem)",
+          fontWeight: 500,
+          lineHeight: 1.25,
+          marginTop: 0,
+          marginBottom: 12,
+          letterSpacing: "-0.01em",
+        }}
+      >
+        Avant de commencer
+      </h2>
+      <p
+        style={{
+          color: "var(--color-muted)",
+          fontSize: 16,
+          lineHeight: 1.55,
+          marginTop: 0,
+          marginBottom: 28,
+        }}
+      >
+        {intro}
+      </p>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <div>
+          <label
+            htmlFor="respondent-name"
+            style={{
+              display: "block",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "var(--color-muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              marginBottom: 8,
+            }}
+          >
+            {nameLabel}
+          </label>
+          <input
+            id="respondent-name"
+            type="text"
+            autoComplete="name"
+            autoFocus
+            value={respondent.name ?? ""}
+            onChange={(e) => setRespondentField("name", e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                const emailInput = document.getElementById(
+                  "respondent-email",
+                ) as HTMLInputElement | null;
+                emailInput?.focus();
+              }
+            }}
+            className="tf-input"
+            style={{
+              width: "100%",
+              fontFamily: "inherit",
+              fontSize: 18,
+              padding: "12px 14px",
+              borderRadius: 8,
+              border: "1px solid var(--color-subtle)",
+              background: "var(--color-card)",
+              color: "var(--color-fg)",
+            }}
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="respondent-email"
+            style={{
+              display: "block",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "var(--color-muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              marginBottom: 8,
+            }}
+          >
+            {emailLabel}
+          </label>
+          <input
+            id="respondent-email"
+            type="email"
+            autoComplete="email"
+            value={respondent.email ?? ""}
+            onChange={(e) => setRespondentField("email", e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                onAdvance();
+              }
+            }}
+            className="tf-input"
+            style={{
+              width: "100%",
+              fontFamily: "inherit",
+              fontSize: 18,
+              padding: "12px 14px",
+              borderRadius: 8,
+              border: "1px solid var(--color-subtle)",
+              background: "var(--color-card)",
+              color: "var(--color-fg)",
+            }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

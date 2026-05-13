@@ -113,12 +113,41 @@ export type HtmlBlock = {
 
 export type Block = HtmlBlock | Question;
 
+/**
+ * Optional respondent identification, rendered as a "system slide" at the start
+ * of a persistent form. Captures a name + email at submit time so the agent
+ * (or owner) can later attribute votes / relance non-voters.
+ *
+ * v1 supports a single shape ("email-name"). v2 may add token-based identity.
+ */
+export type RespondentField = {
+  type: "email-name";
+  /** If true (default), respondent must fill both name and email. */
+  required?: boolean;
+  /** Override default labels. */
+  emailLabel?: string;
+  nameLabel?: string;
+  /** Optional intro shown above the fields. */
+  intro?: string;
+};
+
 export type FormSpec = {
   title: string;
   description?: string;
   blocks: Block[];
   language?: "fr" | "en";
   createdAt?: string;
+  /**
+   * If true, the form is persistent: spec stored without TTL, submissions
+   * appended (instead of overwriting) under sub_idx / sub keys. Multiple
+   * respondents can submit. Retrievable via /api/forms/{id}/submissions
+   * and /api/forms/{id}/export.csv (both auth-gated).
+   *
+   * If false / absent: legacy ephemeral mode. Spec TTL 24h, single response
+   * stored under response:{id} (TTL 1h), readable via /api/response/{id}.
+   */
+  persistent?: boolean;
+  respondentField?: RespondentField;
 };
 
 export type FormAnswers = Record<string, unknown>;
@@ -129,4 +158,22 @@ export type StoredResponse = {
   submittedAt: string;
   answers: FormAnswers;
   source: "tally" | "custom";
+};
+
+export type Respondent = {
+  name?: string;
+  email?: string;
+};
+
+/**
+ * A single submission stored under sub:{form_id}:{submission_id} for persistent
+ * forms. Answers are keyed by stable question id (not label) so the spec can be
+ * exported / aggregated unambiguously even if two questions share a title.
+ */
+export type Submission = {
+  submission_id: string;
+  form_id: string;
+  answers: FormAnswers;
+  respondent?: Respondent;
+  submitted_at: string;
 };

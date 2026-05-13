@@ -52,11 +52,13 @@ Make the project usable by people who aren't Jérôme.
 
 ### Server side
 
-- [ ] **Decouple branding** from `tally-bridge` (Vercel project rename or new project)
+- [x] **Decouple branding** from `tally-bridge` — Vercel project renamed to `formloop` on 2026-05-13
+- [x] **Optional persistent forms**: opt-in `persistent: true` flag with multi-respondent storage, list/CSV export (Phase 1, Redis no-TTL — landed 2026-05-13)
 - [ ] **Self-hostable**: Docker Compose with `server` + `redis` for one-command local hosting
 - [ ] **Public demo**: deploy a stable demo at `formloop.dev` (or wherever)
 - [ ] **API auth flexibility**: support both shared secret AND per-form tokens
-- [ ] **Optional persistent history**: opt-in flag to keep responses beyond the 1h TTL (write to Vercel Blob, S3, or a Postgres adapter)
+- [ ] **Storage adapter pattern** (Phase 2): extract Redis impl behind a `FormloopStorage` interface, add Postgres adapter
+- [ ] **Decision Records concept** (Phase 3): persistent forms → ADR-style markdown + git push
 
 ### TypeScript SDK (`packages/sdk-typescript/`)
 
