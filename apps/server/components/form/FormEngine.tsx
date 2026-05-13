@@ -223,7 +223,9 @@ export function FormEngine({ formId, spec }: { formId: string; spec: FormSpec })
           flex: 1,
           display: "flex",
           flexDirection: "column",
-          justifyContent: "center",
+          // Center vertically only in stack mode. Split mode wants top-aligned
+          // so the two columns don't drift on slides where one side is taller.
+          justifyContent: spec.layout === "split" ? "flex-start" : "center",
           padding: "var(--spacing-form-y) var(--spacing-form-x)",
           position: "relative",
         }}
@@ -251,6 +253,7 @@ export function FormEngine({ formId, spec }: { formId: string; spec: FormSpec })
                 answers={answers}
                 setAnswer={setAnswer}
                 onAdvance={goNext}
+                layout={spec.layout ?? "stack"}
               />
             )}
           </motion.div>
@@ -362,11 +365,13 @@ function BlockView({
   answers,
   setAnswer,
   onAdvance,
+  layout = "stack",
 }: {
   block: Block;
   answers: Answers;
   setAnswer: (id: string, value: AnswerValue) => void;
   onAdvance: () => void;
+  layout?: "stack" | "split";
 }) {
   if (block.kind === "html") {
     return <HtmlBlockView html={block.html} />;
@@ -383,8 +388,8 @@ function BlockView({
       ? (answers[block.comment!.id] as string)
       : "";
 
-  return (
-    <div>
+  const titleAndHeader = (
+    <>
       <h2
         style={{
           fontSize: "clamp(1.5rem, 3vw, 2.25rem)",
@@ -413,13 +418,16 @@ function BlockView({
           {block.description}
         </p>
       )}
-
       {hasHeader && (
-        <div style={{ marginBottom: 28 }}>
+        <div style={{ marginBottom: layout === "split" ? 0 : 28 }}>
           <HtmlSafe html={block.headerHtml!} />
         </div>
       )}
+    </>
+  );
 
+  const widgetAndComment = (
+    <>
       {block.kind === "mc" && <McView {...props} question={block} />}
       {block.kind === "multi" && <MultiView {...props} question={block} />}
       {block.kind === "text" && <TextView {...props} question={block} />}
@@ -432,7 +440,6 @@ function BlockView({
       {block.kind === "scale-preview" && (
         <ScalePreviewView {...props} question={block} />
       )}
-
       {hasComment && (
         <div style={{ marginTop: 28 }}>
           <label
@@ -472,6 +479,29 @@ function BlockView({
           />
         </div>
       )}
+    </>
+  );
+
+  if (layout === "split") {
+    return (
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))",
+          gap: 32,
+          alignItems: "start",
+        }}
+      >
+        <div>{titleAndHeader}</div>
+        <div style={{ position: "sticky", top: 24 }}>{widgetAndComment}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {titleAndHeader}
+      {widgetAndComment}
     </div>
   );
 }
