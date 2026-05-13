@@ -1,11 +1,15 @@
 #!/bin/bash
-# End-to-end test: create form with all 10 types + html block,
-# submit programmatically, verify retrieval.
+# End-to-end tests:
+#   1. Ephemeral form — all 10 types + html block, single submission, response:{id} path.
+#   2. Persistent form — multi-respondent, respondentField, submissions list + CSV export.
+#
+# Override BRIDGE / SECRET via env to run against a local dev server or a new
+# Vercel deployment.
 
 set -euo pipefail
 
-BRIDGE="https://tally-bridge-manibors-projects.vercel.app"
-SECRET="c497ab42f6c3cf110bf1882216388ad4c114268a1577efe9494e38b6282cdd36"
+BRIDGE="${BRIDGE:-https://tally-bridge-manibors-projects.vercel.app}"
+SECRET="${SECRET:-c497ab42f6c3cf110bf1882216388ad4c114268a1577efe9494e38b6282cdd36}"
 
 SPEC='{
   "spec": {
@@ -119,3 +123,116 @@ if fail:
 print("\nAll 10 types verified end-to-end")
 PY
 rm -f "$RETR_FILE"
+
+echo ""
+echo "==============================================="
+echo "  PHASE 2 — Persistent form (multi-respondent)"
+echo "==============================================="
+echo ""
+
+PERSISTENT_SPEC='{
+  "spec": {
+    "title": "E2E persistent + respondent",
+    "persistent": true,
+    "respondentField": {"type": "email-name", "required": true},
+    "blocks": [
+      {"kind": "html", "html": "<p>Test persistent — 3 respondents</p>"},
+      {"kind": "mc", "id": "vote", "title": "Vote", "options": ["Approve", "Reject", "Discuss"]},
+      {"kind": "textarea", "id": "why", "title": "Pourquoi ?", "required": false}
+    ]
+  }
+}'
+
+echo "=== P1. Creating persistent form ==="
+RESP=$(curl -s -X POST -H "Content-Type: application/json" \
+  -d "$PERSISTENT_SPEC" \
+  "$BRIDGE/api/forms?secret=$SECRET")
+echo "$RESP"
+PFORM_ID=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['form_id'])")
+PERSISTENT_FLAG=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin).get('persistent'))")
+if [ "$PERSISTENT_FLAG" != "True" ]; then
+  echo "  ✗ Expected persistent=true in response"
+  exit 1
+fi
+echo "  ✓ persistent form created: $PFORM_ID"
+echo ""
+
+echo "=== P2. Submitting 3 respondents ==="
+for i in 1 2 3; do
+  SUBMIT=$(cat <<EOF
+{
+  "answers": {"vote": "$([ $i -eq 1 ] && echo "Approve" || ([ $i -eq 2 ] && echo "Reject" || echo "Discuss"))", "why": "raison $i"},
+  "respondent": {"name": "Dev $i", "email": "dev$i@example.com"}
+}
+EOF
+)
+  R=$(curl -s -X POST -H "Content-Type: application/json" -d "$SUBMIT" \
+    "$BRIDGE/api/forms/$PFORM_ID/submit")
+  SID=$(echo "$R" | python3 -c "import json,sys;print(json.load(sys.stdin).get('submission_id',''))")
+  if [ -z "$SID" ]; then
+    echo "  ✗ submission $i failed: $R"
+    exit 1
+  fi
+  echo "  ✓ submission $i: $SID"
+done
+echo ""
+
+echo "=== P3. Reject submission without respondent (required) ==="
+BAD=$(curl -s -X POST -H "Content-Type: application/json" \
+  -d '{"answers":{"vote":"Approve"}}' \
+  "$BRIDGE/api/forms/$PFORM_ID/submit")
+if echo "$BAD" | grep -q "respondent required"; then
+  echo "  ✓ correctly rejected: $BAD"
+else
+  echo "  ✗ should have rejected: $BAD"
+  exit 1
+fi
+echo ""
+
+echo "=== P4. GET /submissions ==="
+LIST=$(curl -s "$BRIDGE/api/forms/$PFORM_ID/submissions?secret=$SECRET")
+COUNT=$(echo "$LIST" | python3 -c "import json,sys;print(json.load(sys.stdin).get('count'))")
+if [ "$COUNT" = "3" ]; then
+  echo "  ✓ count=3"
+else
+  echo "  ✗ expected count=3, got $COUNT"
+  echo "$LIST"
+  exit 1
+fi
+echo "$LIST" | python3 -c "
+import json,sys
+d = json.load(sys.stdin)
+for s in d['submissions']:
+  print(f\"  - {s['submission_id']}: {s['respondent']['name']} → {s['answers'].get('vote')}\")"
+echo ""
+
+echo "=== P5. GET /export.csv ==="
+CSV=$(curl -s "$BRIDGE/api/forms/$PFORM_ID/export.csv?secret=$SECRET")
+LINES=$(echo "$CSV" | grep -c . || true)
+if [ "$LINES" -ge 4 ]; then
+  echo "  ✓ CSV has $LINES lines (header + 3 rows)"
+else
+  echo "  ✗ expected ≥4 lines, got $LINES"
+  echo "$CSV"
+  exit 1
+fi
+if echo "$CSV" | head -1 | grep -q "respondent_email"; then
+  echo "  ✓ CSV header looks right"
+else
+  echo "  ✗ CSV header missing expected columns"
+  echo "$CSV" | head -1
+  exit 1
+fi
+echo ""
+
+echo "=== P6. Reject /submissions on ephemeral form (uses earlier FORM_ID) ==="
+EPH=$(curl -s "$BRIDGE/api/forms/$FORM_ID/submissions?secret=$SECRET")
+if echo "$EPH" | grep -q "ephemeral"; then
+  echo "  ✓ correctly rejected: $EPH"
+else
+  echo "  ✗ should have rejected: $EPH"
+  exit 1
+fi
+echo ""
+
+echo "Persistent form E2E verified ($PFORM_ID)"
