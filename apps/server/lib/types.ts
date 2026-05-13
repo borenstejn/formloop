@@ -148,6 +148,17 @@ export type FormSpec = {
    */
   persistent?: boolean;
   respondentField?: RespondentField;
+  /**
+   * Layout for question slides.
+   * - "stack" (default): everything in a single vertical column — title,
+   *   description, headerHtml, answer widget, optional comment textarea.
+   * - "split": two-column grid — title + description + headerHtml on the
+   *   left, answer widget + optional comment textarea on the right.
+   *   Auto-stacks back to a single column when the viewport is too narrow
+   *   (each column wants at least 380px before wrapping).
+   * Applies to question slides only — html blocks render full-width either way.
+   */
+  layout?: "stack" | "split";
 };
 
 export type FormAnswers = Record<string, unknown>;
