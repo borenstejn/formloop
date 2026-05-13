@@ -125,6 +125,14 @@ export function FormEngine({ formId, spec }: { formId: string; spec: FormSpec })
     }
   }, [answers, respondent, hasRespondentSlide, formId, router]);
 
+  // Scroll back to top whenever we move to a new slide.
+  // Without this, tall slides (long headerHtml, code samples) leave the user
+  // landing at the bottom of the next slide — they see the answer widget but
+  // miss the question, title and illustration above it.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [index]);
+
   // Global keyboard nav
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
