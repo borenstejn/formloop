@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, ArrowRight, Loader2 } from "lucide-react";
@@ -257,15 +257,22 @@ export function FormEngine({ formId, spec }: { formId: string; spec: FormSpec })
         </AnimatePresence>
       </section>
 
-      {/* Footer */}
+      {/* Footer — sticky so the Continue/Submit button stays reachable even on
+          tall slides where the user has scrolled into the answer widget. */}
       <footer
         style={{
-          padding: "20px 24px 28px",
+          position: "sticky",
+          bottom: 0,
+          zIndex: 40,
+          padding: "16px 24px 20px",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           gap: 12,
           flexWrap: "wrap",
+          background:
+            "linear-gradient(to bottom, rgba(255,255,255,0) 0%, var(--color-bg, #fff) 28%, var(--color-bg, #fff) 100%)",
+          backdropFilter: "blur(2px)",
         }}
       >
         {!isFirst && (
@@ -321,6 +328,35 @@ export function FormEngine({ formId, spec }: { formId: string; spec: FormSpec })
   );
 }
 
+/**
+ * Render a string with `backtick-wrapped` fragments turned into inline <code>.
+ * Markdown-lite: only `code` is recognized — no bold, italic, etc.
+ */
+function renderInlineCode(text: string): React.ReactNode {
+  const parts = text.split(/(`[^`]+`)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return (
+        <code
+          key={i}
+          style={{
+            background: "var(--color-subtle, #eef0f3)",
+            padding: "2px 6px",
+            borderRadius: 4,
+            fontFamily:
+              "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+            fontSize: "0.82em",
+            fontWeight: 400,
+          }}
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    return <React.Fragment key={i}>{part}</React.Fragment>;
+  });
+}
+
 function BlockView({
   block,
   answers,
@@ -359,7 +395,7 @@ function BlockView({
           letterSpacing: "-0.01em",
         }}
       >
-        {block.title}
+        {renderInlineCode(block.title)}
         {(block.required ?? true) && (
           <span style={{ color: "var(--color-error)", marginLeft: 4 }}>*</span>
         )}
