@@ -4,9 +4,9 @@ import React, { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, ArrowRight, Loader2 } from "lucide-react";
-import type { FormSpec, Block, Question, Respondent } from "@/lib/types";
+import type { FormSpec, Block, GroupBlock, Question, Respondent } from "@/lib/types";
 import type { Answers, AnswerValue } from "./types";
-import { isQuestion, isAnswered } from "./types";
+import { isQuestion, isGroup, isAnswered } from "./types";
 import { McView } from "./views/McView";
 import { MultiView } from "./views/MultiView";
 import { TextView } from "./views/TextView";
@@ -43,9 +43,16 @@ export function FormEngine({ formId, spec }: { formId: string; spec: FormSpec })
 
   const blocks = spec.blocks;
   const totalSlides = blocks.length + respondentOffset;
-  const totalQuestions = blocks.filter(isQuestion).length;
-  const answeredQuestionsCount = Object.keys(answers).filter((k) =>
-    isAnswered(blocks.find((b) => isQuestion(b) && b.id === k) as Question, answers[k]),
+
+  // Flatten all leaf questions across blocks (groups expand their nested questions)
+  const allLeafQuestions: Question[] = blocks.flatMap((b): Question[] => {
+    if (isQuestion(b)) return [b];
+    if (isGroup(b)) return b.questions;
+    return [];
+  });
+  const totalQuestions = allLeafQuestions.length;
+  const answeredQuestionsCount = allLeafQuestions.filter((q) =>
+    isAnswered(q, answers[q.id]),
   ).length;
 
   const isOnRespondentSlide = hasRespondentSlide && index === 0;
@@ -65,7 +72,17 @@ export function FormEngine({ formId, spec }: { formId: string; spec: FormSpec })
 
   const isCurrentValid = (() => {
     if (isOnRespondentSlide) return respondentValid;
-    if (!currentBlock || !isQuestion(currentBlock)) return true;
+    if (!currentBlock) return true;
+    if (currentBlock.kind === "html") return true;
+    if (isGroup(currentBlock)) {
+      // Tous les sous-questions required doivent être répondues
+      return currentBlock.questions.every((q) => {
+        const required = q.required ?? true;
+        if (!required) return true;
+        return isAnswered(q, answers[q.id]);
+      });
+    }
+    if (!isQuestion(currentBlock)) return true;
     const required = currentBlock.required ?? true;
     if (!required) return true;
     return isAnswered(currentBlock, answers[currentBlock.id]);
@@ -364,6 +381,152 @@ function renderInlineCode(text: string): React.ReactNode {
   });
 }
 
+function renderQuestionWidget(
+  question: Question,
+  value: AnswerValue | undefined,
+  onChange: (v: AnswerValue) => void,
+  onAdvance: () => void,
+) {
+  const props = { value, onChange, onAdvance };
+  switch (question.kind) {
+    case "mc":
+      return <McView {...props} question={question} />;
+    case "multi":
+      return <MultiView {...props} question={question} />;
+    case "text":
+      return <TextView {...props} question={question} />;
+    case "textarea":
+      return <TextareaView {...props} question={question} />;
+    case "yn":
+      return <YnView {...props} question={question} />;
+    case "number":
+      return <NumberView {...props} question={question} />;
+    case "scale":
+      return <ScaleView {...props} question={question} />;
+    case "html-pick":
+      return <HtmlPickView {...props} question={question} />;
+    case "rank":
+      return <RankView {...props} question={question} />;
+    case "scale-preview":
+      return <ScalePreviewView {...props} question={question} />;
+  }
+}
+
+function InlineCommentTextarea({
+  field,
+  value,
+  onChange,
+}: {
+  field: { id: string; placeholder?: string; label?: string };
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div style={{ marginTop: 28 }}>
+      <label
+        htmlFor={`comment-${field.id}`}
+        style={{
+          display: "block",
+          fontSize: 13,
+          fontWeight: 600,
+          color: "var(--color-muted)",
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+          marginBottom: 8,
+        }}
+      >
+        {field.label ?? "Commentaire (optionnel)"}
+      </label>
+      <textarea
+        id={`comment-${field.id}`}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={field.placeholder ?? ""}
+        rows={3}
+        className="tf-input"
+        style={{
+          width: "100%",
+          resize: "vertical",
+          minHeight: 80,
+          fontFamily: "inherit",
+          fontSize: 15,
+          lineHeight: 1.5,
+          padding: "10px 14px",
+          borderRadius: 8,
+          border: "1px solid var(--color-subtle)",
+          background: "var(--color-card)",
+          color: "var(--color-fg)",
+        }}
+      />
+    </div>
+  );
+}
+
+function GroupSubQuestion({
+  question,
+  answers,
+  setAnswer,
+  onAdvance,
+}: {
+  question: Question;
+  answers: Answers;
+  setAnswer: (id: string, value: AnswerValue) => void;
+  onAdvance: () => void;
+}) {
+  const value = answers[question.id];
+  const onChange = (v: AnswerValue) => setAnswer(question.id, v);
+  const hasComment = !!question.comment;
+  const commentValue =
+    hasComment && typeof answers[question.comment!.id] === "string"
+      ? (answers[question.comment!.id] as string)
+      : "";
+  const required = question.required ?? true;
+
+  return (
+    <div>
+      <h3
+        style={{
+          fontSize: 18,
+          fontWeight: 600,
+          lineHeight: 1.35,
+          margin: "0 0 14px 0",
+          color: "var(--color-fg)",
+        }}
+      >
+        {renderInlineCode(question.title)}
+        {required && (
+          <span style={{ color: "var(--color-error)", marginLeft: 4 }}>*</span>
+        )}
+      </h3>
+      {question.description && (
+        <p
+          style={{
+            color: "var(--color-muted)",
+            fontSize: 14,
+            lineHeight: 1.55,
+            margin: "0 0 14px 0",
+          }}
+        >
+          {question.description}
+        </p>
+      )}
+      {question.headerHtml && (
+        <div style={{ marginBottom: 16 }}>
+          <HtmlSafe html={question.headerHtml} />
+        </div>
+      )}
+      {renderQuestionWidget(question, value, onChange, onAdvance)}
+      {hasComment && (
+        <InlineCommentTextarea
+          field={question.comment!}
+          value={commentValue}
+          onChange={(v) => setAnswer(question.comment!.id, v)}
+        />
+      )}
+    </div>
+  );
+}
+
 function BlockView({
   block,
   answers,
@@ -379,6 +542,66 @@ function BlockView({
 }) {
   if (block.kind === "html") {
     return <HtmlBlockView html={block.html} />;
+  }
+
+  if (block.kind === "group") {
+    return (
+      <div>
+        {block.title && (
+          <h2
+            style={{
+              fontSize: "clamp(1.5rem, 3vw, 2.25rem)",
+              fontWeight: 500,
+              lineHeight: 1.25,
+              marginTop: 0,
+              marginBottom: block.description || block.headerHtml ? 12 : 28,
+              letterSpacing: "-0.01em",
+            }}
+          >
+            {renderInlineCode(block.title)}
+          </h2>
+        )}
+        {block.description && (
+          <p
+            style={{
+              color: "var(--color-muted)",
+              fontSize: 16,
+              lineHeight: 1.55,
+              marginTop: 0,
+              marginBottom: block.headerHtml ? 16 : 28,
+            }}
+          >
+            {block.description}
+          </p>
+        )}
+        {block.headerHtml && (
+          <div style={{ marginBottom: 28 }}>
+            <HtmlSafe html={block.headerHtml} />
+          </div>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
+          {block.questions.map((q, i) => (
+            <React.Fragment key={q.id}>
+              {i > 0 && (
+                <div
+                  style={{
+                    height: 1,
+                    background: "var(--color-subtle)",
+                    margin: "0 -8px",
+                  }}
+                />
+              )}
+              <GroupSubQuestion
+                question={q}
+                answers={answers}
+                setAnswer={setAnswer}
+                onAdvance={onAdvance}
+              />
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   const value = answers[block.id];

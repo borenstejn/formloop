@@ -87,10 +87,20 @@ export async function POST(
   }
 
   // Ephemeral (legacy) path: build labelMap, remap answers, overwrite response:{id}.
+  // Groups expose their nested questions individually (each has its own id/title).
   const labelMap: Record<string, string> = {};
   for (const block of spec.blocks) {
-    if (block.kind !== "html" && "id" in block && block.id) {
+    if (block.kind === "html") continue;
+    if (block.kind === "group") {
+      for (const q of block.questions) {
+        if (q.id) labelMap[q.id] = q.title;
+        if (q.comment?.id) labelMap[q.comment.id] = q.comment.label ?? `${q.title} — commentaire`;
+      }
+      continue;
+    }
+    if ("id" in block && block.id) {
       labelMap[block.id] = block.title;
+      if (block.comment?.id) labelMap[block.comment.id] = block.comment.label ?? `${block.title} — commentaire`;
     }
   }
 

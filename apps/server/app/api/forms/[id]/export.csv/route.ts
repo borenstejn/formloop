@@ -31,11 +31,25 @@ type Column = {
 /**
  * Build column list from spec, in block order. Each question contributes one
  * column; if it has an inline comment field, that contributes a second column.
+ * Group blocks expand their nested questions in order.
  */
 function buildColumns(blocks: Block[]): Column[] {
   const cols: Column[] = [];
   for (const block of blocks) {
     if (block.kind === "html") continue;
+    if (block.kind === "group") {
+      for (const q of block.questions) {
+        if (!q.id) continue;
+        cols.push({ key: q.id, header: q.title });
+        if (q.comment) {
+          cols.push({
+            key: q.comment.id,
+            header: `${q.title} — ${q.comment.label ?? "commentaire"}`,
+          });
+        }
+      }
+      continue;
+    }
     if ("id" in block && block.id) {
       cols.push({ key: block.id, header: block.title });
       if ("comment" in block && block.comment) {

@@ -1,4 +1,4 @@
-import type { Block, Question } from "@/lib/types";
+import type { Block, GroupBlock, Question } from "@/lib/types";
 
 export type AnswerValue =
   | string
@@ -18,7 +18,11 @@ export type ViewProps<T extends Question> = {
 };
 
 export function isQuestion(block: Block): block is Question {
-  return block.kind !== "html";
+  return block.kind !== "html" && block.kind !== "group";
+}
+
+export function isGroup(block: Block): block is GroupBlock {
+  return block.kind === "group";
 }
 
 export function isAnswered(question: Question, value: AnswerValue | undefined): boolean {

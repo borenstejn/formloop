@@ -111,7 +111,34 @@ export type HtmlBlock = {
   html: string;
 };
 
-export type Block = HtmlBlock | Question;
+/**
+ * A group block collects multiple questions onto a SINGLE slide, rendered
+ * vertically (decision, comment, importance, etc.). Useful when several
+ * answers need to be reviewed together — e.g., asking a reviewer to (a)
+ * decide on a rule, (b) leave a comment, (c) rate its importance, all
+ * visible at once.
+ *
+ * The group itself does not capture an answer; each nested question stores
+ * its own answer in `answers[question.id]` as usual. The "Continue" button
+ * is enabled only when ALL required nested questions are answered.
+ *
+ * Validation : nested `questions` must be leaf Question types (no `group`
+ * or `html` nesting).
+ */
+export type GroupBlock = {
+  kind: "group";
+  id?: string;
+  /** Optional shared HTML rendered above all sub-questions (mockup, context). */
+  headerHtml?: string;
+  /** Optional title rendered above the sub-questions (e.g., a step label). */
+  title?: string;
+  /** Optional description shown below the title. */
+  description?: string;
+  /** Sub-questions, rendered stacked vertically on the same slide. */
+  questions: Question[];
+};
+
+export type Block = HtmlBlock | Question | GroupBlock;
 
 /**
  * Optional respondent identification, rendered as a "system slide" at the start
