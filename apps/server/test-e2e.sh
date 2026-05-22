@@ -3,13 +3,19 @@
 #   1. Ephemeral form — all 10 types + html block, single submission, response:{id} path.
 #   2. Persistent form — multi-respondent, respondentField, submissions list + CSV export.
 #
-# Override BRIDGE / SECRET via env to run against a local dev server or a new
-# Vercel deployment.
+# Default: runs against a local server on http://127.0.0.1:3847 (no secret needed).
+# Override BRIDGE / SECRET via env to run against a hosted deployment.
 
 set -euo pipefail
 
-BRIDGE="${BRIDGE:-https://tally-bridge-manibors-projects.vercel.app}"
-SECRET="${SECRET:-c497ab42f6c3cf110bf1882216388ad4c114268a1577efe9494e38b6282cdd36}"
+BRIDGE="${BRIDGE:-http://127.0.0.1:3847}"
+SECRET="${SECRET:-}"
+
+# Build auth header (empty in local mode)
+AUTH_HEADER=""
+if [ -n "$SECRET" ]; then
+  AUTH_HEADER="-H x-webhook-secret: $SECRET"
+fi
 
 SPEC='{
   "spec": {
@@ -40,8 +46,9 @@ SPEC='{
 
 echo "=== 1. Creating form ==="
 RESP=$(curl -s -X POST -H "Content-Type: application/json" \
+  ${AUTH_HEADER:+"$AUTH_HEADER"} \
   -d "$SPEC" \
-  "$BRIDGE/api/forms?secret=$SECRET")
+  "$BRIDGE/api/forms")
 echo "$RESP"
 FORM_ID=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['form_id'])")
 FORM_URL=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['form_url'])")
@@ -52,9 +59,9 @@ echo ""
 echo "=== 2. Verifying form page renders ==="
 PAGE=$(curl -s "$FORM_URL")
 if echo "$PAGE" | grep -q "E2E full type coverage"; then
-  echo "  ✓ Form title rendered"
+  echo "  ok Form title rendered"
 else
-  echo "  ✗ Form title NOT found in page"
+  echo "  FAIL Form title NOT found in page"
   exit 1
 fi
 echo ""
@@ -81,7 +88,8 @@ echo "$SUBMIT_RESP"
 echo ""
 
 echo "=== 4. Retrieving via /api/response ==="
-RETR=$(curl -s "$BRIDGE/api/response/$FORM_ID?secret=$SECRET&consume=1")
+RETR=$(curl -s ${AUTH_HEADER:+"$AUTH_HEADER"} \
+  "$BRIDGE/api/response/$FORM_ID?consume=1")
 echo "$RETR" | python3 -m json.tool
 echo ""
 
@@ -145,16 +153,17 @@ PERSISTENT_SPEC='{
 
 echo "=== P1. Creating persistent form ==="
 RESP=$(curl -s -X POST -H "Content-Type: application/json" \
+  ${AUTH_HEADER:+"$AUTH_HEADER"} \
   -d "$PERSISTENT_SPEC" \
-  "$BRIDGE/api/forms?secret=$SECRET")
+  "$BRIDGE/api/forms")
 echo "$RESP"
 PFORM_ID=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['form_id'])")
 PERSISTENT_FLAG=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin).get('persistent'))")
 if [ "$PERSISTENT_FLAG" != "True" ]; then
-  echo "  ✗ Expected persistent=true in response"
+  echo "  FAIL Expected persistent=true in response"
   exit 1
 fi
-echo "  ✓ persistent form created: $PFORM_ID"
+echo "  ok persistent form created: $PFORM_ID"
 echo ""
 
 echo "=== P2. Submitting 3 respondents ==="
@@ -170,10 +179,10 @@ EOF
     "$BRIDGE/api/forms/$PFORM_ID/submit")
   SID=$(echo "$R" | python3 -c "import json,sys;print(json.load(sys.stdin).get('submission_id',''))")
   if [ -z "$SID" ]; then
-    echo "  ✗ submission $i failed: $R"
+    echo "  FAIL submission $i failed: $R"
     exit 1
   fi
-  echo "  ✓ submission $i: $SID"
+  echo "  ok submission $i: $SID"
 done
 echo ""
 
@@ -182,20 +191,21 @@ BAD=$(curl -s -X POST -H "Content-Type: application/json" \
   -d '{"answers":{"vote":"Approve"}}' \
   "$BRIDGE/api/forms/$PFORM_ID/submit")
 if echo "$BAD" | grep -q "respondent required"; then
-  echo "  ✓ correctly rejected: $BAD"
+  echo "  ok correctly rejected: $BAD"
 else
-  echo "  ✗ should have rejected: $BAD"
+  echo "  FAIL should have rejected: $BAD"
   exit 1
 fi
 echo ""
 
 echo "=== P4. GET /submissions ==="
-LIST=$(curl -s "$BRIDGE/api/forms/$PFORM_ID/submissions?secret=$SECRET")
+LIST=$(curl -s ${AUTH_HEADER:+"$AUTH_HEADER"} \
+  "$BRIDGE/api/forms/$PFORM_ID/submissions")
 COUNT=$(echo "$LIST" | python3 -c "import json,sys;print(json.load(sys.stdin).get('count'))")
 if [ "$COUNT" = "3" ]; then
-  echo "  ✓ count=3"
+  echo "  ok count=3"
 else
-  echo "  ✗ expected count=3, got $COUNT"
+  echo "  FAIL expected count=3, got $COUNT"
   echo "$LIST"
   exit 1
 fi
@@ -203,34 +213,36 @@ echo "$LIST" | python3 -c "
 import json,sys
 d = json.load(sys.stdin)
 for s in d['submissions']:
-  print(f\"  - {s['submission_id']}: {s['respondent']['name']} → {s['answers'].get('vote')}\")"
+  print(f\"  - {s['submission_id']}: {s['respondent']['name']} -> {s['answers'].get('vote')}\")"
 echo ""
 
 echo "=== P5. GET /export.csv ==="
-CSV=$(curl -s "$BRIDGE/api/forms/$PFORM_ID/export.csv?secret=$SECRET")
+CSV=$(curl -s ${AUTH_HEADER:+"$AUTH_HEADER"} \
+  "$BRIDGE/api/forms/$PFORM_ID/export.csv")
 LINES=$(echo "$CSV" | grep -c . || true)
 if [ "$LINES" -ge 4 ]; then
-  echo "  ✓ CSV has $LINES lines (header + 3 rows)"
+  echo "  ok CSV has $LINES lines (header + 3 rows)"
 else
-  echo "  ✗ expected ≥4 lines, got $LINES"
+  echo "  FAIL expected >=4 lines, got $LINES"
   echo "$CSV"
   exit 1
 fi
 if echo "$CSV" | head -1 | grep -q "respondent_email"; then
-  echo "  ✓ CSV header looks right"
+  echo "  ok CSV header looks right"
 else
-  echo "  ✗ CSV header missing expected columns"
+  echo "  FAIL CSV header missing expected columns"
   echo "$CSV" | head -1
   exit 1
 fi
 echo ""
 
 echo "=== P6. Reject /submissions on ephemeral form (uses earlier FORM_ID) ==="
-EPH=$(curl -s "$BRIDGE/api/forms/$FORM_ID/submissions?secret=$SECRET")
+EPH=$(curl -s ${AUTH_HEADER:+"$AUTH_HEADER"} \
+  "$BRIDGE/api/forms/$FORM_ID/submissions")
 if echo "$EPH" | grep -q "ephemeral"; then
-  echo "  ✓ correctly rejected: $EPH"
+  echo "  ok correctly rejected: $EPH"
 else
-  echo "  ✗ should have rejected: $EPH"
+  echo "  FAIL should have rejected: $EPH"
   exit 1
 fi
 echo ""

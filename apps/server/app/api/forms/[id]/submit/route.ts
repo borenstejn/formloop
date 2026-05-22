@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  redis,
-  responseKey,
-  specKey,
-  submissionIndexKey,
-  submissionKey,
-  RESPONSE_TTL_SECONDS,
-} from "@/lib/redis";
+import { getStore, RESPONSE_TTL_SECONDS } from "@/lib/store";
+import { parseJsonBody, isErrorResponse } from "@/lib/validate";
 import { generateFormId } from "@/lib/id";
 import type {
   FormSpec,
@@ -35,21 +29,19 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const store = getStore();
 
-  const rawSpec = await redis.get<string>(specKey(id));
+  const rawSpec = await store.getSpec(id);
   if (!rawSpec) {
     return NextResponse.json({ error: "form not found or expired" }, { status: 404 });
   }
-  const spec: FormSpec = typeof rawSpec === "string" ? JSON.parse(rawSpec) : rawSpec;
+  const spec: FormSpec = JSON.parse(rawSpec);
 
-  let body:
-    | { answers?: Record<string, unknown>; respondent?: unknown }
-    | null = null;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "invalid json" }, { status: 400 });
-  }
+  const body = await parseJsonBody<{
+    answers?: Record<string, unknown>;
+    respondent?: unknown;
+  }>(req);
+  if (isErrorResponse(body)) return body;
 
   const rawAnswers = body?.answers ?? {};
   const respondent = normalizeRespondent(body?.respondent);
@@ -77,16 +69,12 @@ export async function POST(
       submitted_at: new Date().toISOString(),
     };
 
-    await redis.set(
-      submissionKey(id, submissionId),
-      JSON.stringify(submission),
-    );
-    await redis.rpush(submissionIndexKey(id), submissionId);
+    await store.addSubmission(id, submissionId, JSON.stringify(submission));
 
     return NextResponse.json({ ok: true, submission_id: submissionId });
   }
 
-  // Ephemeral (legacy) path: build labelMap, remap answers, overwrite response:{id}.
+  // Ephemeral path: build labelMap, remap answers, overwrite response:{id}.
   // Groups expose their nested questions individually (each has its own id/title).
   const labelMap: Record<string, string> = {};
   for (const block of spec.blocks) {
@@ -118,9 +106,7 @@ export async function POST(
     source: "custom",
   };
 
-  await redis.set(responseKey(id), JSON.stringify(stored), {
-    ex: RESPONSE_TTL_SECONDS,
-  });
+  await store.setResponse(id, JSON.stringify(stored), RESPONSE_TTL_SECONDS);
 
   return NextResponse.json({ ok: true });
 }

@@ -1,11 +1,21 @@
 {
-  "name": "formloop-server",
+  "name": "formloop",
   "version": "0.1.0",
-  "private": true,
+  "description": "Local-first form engine for LLM agents — Typeform-quality forms generated on-the-fly",
+  "bin": {
+    "formloop": "./bin/formloop.mjs"
+  },
+  "files": [
+    "bin/",
+    ".next/standalone/",
+    ".next/static/",
+    "public/"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

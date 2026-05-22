@@ -195,7 +195,7 @@ export type StoredResponse = {
   formName?: string;
   submittedAt: string;
   answers: FormAnswers;
-  source: "tally" | "custom";
+  source: "custom";
 };
 
 export type Respondent = {

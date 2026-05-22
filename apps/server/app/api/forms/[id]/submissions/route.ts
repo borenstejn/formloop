@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  redis,
-  specKey,
-  submissionIndexKey,
-  submissionKey,
-} from "@/lib/redis";
+import { getStore } from "@/lib/store";
 import { checkSecret } from "@/lib/auth";
 import type { FormSpec, Submission } from "@/lib/types";
 
@@ -20,16 +15,16 @@ export async function GET(
   }
 
   const { id } = await params;
+  const store = getStore();
 
-  const rawSpec = await redis.get<string>(specKey(id));
+  const rawSpec = await store.getSpec(id);
   if (!rawSpec) {
     return NextResponse.json(
       { error: "form not found or expired" },
       { status: 404 },
     );
   }
-  const spec: FormSpec =
-    typeof rawSpec === "string" ? JSON.parse(rawSpec) : rawSpec;
+  const spec: FormSpec = JSON.parse(rawSpec);
 
   if (spec.persistent !== true) {
     return NextResponse.json(
@@ -41,16 +36,14 @@ export async function GET(
     );
   }
 
-  const ids = (await redis.lrange<string>(submissionIndexKey(id), 0, -1)) ?? [];
+  const ids = await store.getSubmissionIds(id);
 
   const submissions: Submission[] = [];
   if (ids.length > 0) {
-    const keys = ids.map((sid) => submissionKey(id, sid));
-    const raws = await redis.mget<(string | null)[]>(...keys);
-    for (const raw of raws ?? []) {
+    const raws = await store.getSubmissions(id, ids);
+    for (const raw of raws) {
       if (!raw) continue;
-      const parsed: Submission =
-        typeof raw === "string" ? JSON.parse(raw) : (raw as Submission);
+      const parsed: Submission = JSON.parse(raw);
       submissions.push(parsed);
     }
   }

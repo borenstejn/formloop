@@ -1,220 +1,194 @@
 #!/usr/bin/env python3
 """
-ask_form — Génère un formulaire à la volée pour poser des questions structurées
-au user pendant une session Claude Code, et récupère les réponses via le bridge
-Vercel.
+ask_form — Generate a form on-the-fly for structured human input during an
+LLM agent session, then retrieve answers.
 
-Deux modes :
-  - "tally"  : utilise Tally.so (formulaire externe, simple, branding Tally)
-  - "custom" : utilise notre engine Typeform-clone hébergé sur le bridge Vercel
-               (10 types de questions y compris html-pick, rank, scale-preview)
-
-Le mode "custom" est plus puissant (HTML embarqué, mockups cliquables, drag-and-drop)
-et plus rapide à créer (pas de roundtrip Tally API). Le mode "tally" reste utile pour
-les questionnaires que le user veut filer à un tiers (Tally a meilleure UX d'envoi).
+Server resolution order:
+  1. FORMLOOP_URL          — explicit override (any URL)
+  2. FORMLOOP_LOCAL_URL    — local server auto-detect (default http://127.0.0.1:3847)
+  3. Auto-start            — launch `npx formloop` if nothing is running locally
+  4. FORMLOOP_HOSTED_URL   — fallback to a hosted instance
 
 Usage:
-  python3 ask_form.py create        --spec '<JSON>'      # mode tally (legacy)
-  python3 ask_form.py create-custom --spec '<JSON>'      # mode custom (recommandé)
+  python3 ask_form.py create --spec '<JSON>'
   python3 ask_form.py wait --form-id ABC [--timeout 1800] [--poll 5]
-  python3 ask_form.py cleanup --form-id ABC              # tally only
-
-Spec JSON format (custom):
-  {
-    "title": "Titre du formulaire",
-    "persistent": false,            # optionnel — true = stockage durable, multi-respondents
-    "respondentField": {            # optionnel, persistent only — capture nom+email
-      "type": "email-name",
-      "required": true,             # défaut true
-      "intro": "..."                # optionnel
-    },
-    "blocks": [
-      {"kind": "html",       "html": "<div>Bloc de contexte (mockup, intro)</div>"},
-      {"kind": "mc",         "id": "q1", "title": "...", "options": ["A", "B"]},
-      {"kind": "multi",      "id": "q2", "title": "...", "options": [...]},
-      {"kind": "text",       "id": "q3", "title": "...", "placeholder": "..."},
-      {"kind": "textarea",   "id": "q4", "title": "..."},
-      {"kind": "yn",         "id": "q5", "title": "..."},
-      {"kind": "number",     "id": "q6", "title": "...", "min": 0, "max": 100},
-      {"kind": "scale",      "id": "q7", "title": "...", "min": 1, "max": 10,
-                              "minLabel": "Banal", "maxLabel": "Genial"},
-      {"kind": "html-pick",  "id": "q8", "title": "...", "multi": false,
-                              "options": [{"id": "a", "html": "<div>...</div>", "label": "A"},
-                                          {"id": "b", "html": "<div>...</div>", "label": "B"}]},
-      {"kind": "rank",       "id": "q9", "title": "...", "options": ["X", "Y", "Z"]},
-      {"kind": "scale-preview", "id": "q10", "title": "...",
-                              "min": 0, "max": 100,
-                              "previewHtml": "<div style='padding:{{value}}px'>Padding</div>"}
-    ]
-  }
-
-Persistent forms — commandes spécifiques:
   python3 ask_form.py list-submissions --form-id ABC
   python3 ask_form.py export-csv --form-id ABC [--output path.csv]
   python3 ask_form.py wait-n --form-id ABC --n 10 [--timeout 1800] [--poll 10]
 
-Spec JSON format (tally legacy):
-  {
-    "title": "Titre du formulaire",
-    "questions": [
-      {"type": "mc",       "title": "...", "options": ["A", "B", "C"]},
-      {"type": "multi",    "title": "...", "options": ["A", "B", "C"]},
-      {"type": "text",     "title": "..."},
-      {"type": "textarea", "title": "..."},
-      {"type": "yn",       "title": "..."},
-      {"type": "number",   "title": "..."}
-    ]
-  }
+Environment:
+  FORMLOOP_URL          Override — use this server, skip auto-detect
+  FORMLOOP_LOCAL_URL    Local server URL (default: http://127.0.0.1:3847)
+  FORMLOOP_HOSTED_URL   Fallback hosted server (requires FORMLOOP_SECRET)
+  FORMLOOP_SECRET       API secret (header auth, hosted mode only)
 """
 
 import argparse
 import json
 import os
+import socket
+import subprocess
 import sys
 import time
-import uuid
 import urllib.request
 import urllib.error
 
-# Reuse helpers from the existing tally-forms skill
-SKILLS_DIR = os.path.expanduser("~/.claude/skills")
-sys.path.insert(0, os.path.join(SKILLS_DIR, "tally-forms", "scripts"))
-from tally import (  # noqa: E402
-    TallyAPI,
-    form_title,
-    mc_question,
-    text_question,
-    textarea_question,
-    yn_question,
-    number_question,
-    multiselect_question,
-    linear_scale_question,
-    page_break,
-    TOKEN as TALLY_TOKEN,
-)
-
-# Override via env: FORMLOOP_BRIDGE_URL, FORMLOOP_WEBHOOK_SECRET.
-# Legacy hardcoded defaults preserved for backward-compatibility with the local
-# ~/.claude/skills/ask-form/ skill until it's updated to pass env explicitly.
-BRIDGE_URL = os.environ.get(
-    "FORMLOOP_BRIDGE_URL",
-    "https://tally-bridge-manibors-projects.vercel.app",
-)
-WEBHOOK_SECRET = os.environ.get(
-    "FORMLOOP_WEBHOOK_SECRET",
-    "c497ab42f6c3cf110bf1882216388ad4c114268a1577efe9494e38b6282cdd36",
-)
+DEFAULT_LOCAL_URL = "http://127.0.0.1:3847"
 
 
-def build_blocks(questions):
-    """Convert spec questions into Tally blocks, separated by page breaks."""
-    blocks = []
-    for i, q in enumerate(questions):
-        t = q.get("type", "text")
-        title = q["title"]
-        if t == "mc":
-            blocks += mc_question(title, q["options"])
-        elif t == "multi":
-            blocks += multiselect_question(title, q["options"])
-        elif t == "text":
-            blocks += text_question(title)
-        elif t == "textarea":
-            blocks += textarea_question(title)
-        elif t == "scale":
-            blocks += linear_scale_question(
-                title,
-                q.get("min", 1),
-                q.get("max", 5),
-                q.get("min_label", ""),
-                q.get("max_label", ""),
-            )
-        elif t == "yn":
-            blocks += yn_question(title)
-        elif t == "number":
-            blocks += number_question(title)
-        else:
-            raise ValueError(f"Unknown question type: {t}")
-        # Page break between questions, but not after the last one
-        if i < len(questions) - 1:
-            blocks += page_break()
-    return blocks
+def _get_secret():
+    return os.environ.get("FORMLOOP_SECRET", "")
 
 
-def configure_webhook(form_id):
-    """Register a webhook on the form so submissions hit our Vercel bridge."""
-    payload = {
-        "formId": form_id,
-        "url": f"{BRIDGE_URL}/api/webhook?secret={WEBHOOK_SECRET}",
-        "eventTypes": ["FORM_RESPONSE"],
-    }
-    req = urllib.request.Request(
-        "https://api.tally.so/webhooks",
-        method="POST",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {TALLY_TOKEN}",
-            "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0",
-        },
+def _make_headers(extra=None):
+    headers = {"User-Agent": "formloop-sdk-py/1.0"}
+    secret = _get_secret()
+    if secret:
+        headers["X-Webhook-Secret"] = secret
+    if extra:
+        headers.update(extra)
+    return headers
+
+
+def _is_server_running(url):
+    """Check if a formloop server is running at the given URL."""
+    # Quick TCP probe first
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        host = parsed.hostname or "127.0.0.1"
+        port = parsed.port or 80
+        sock = socket.create_connection((host, port), timeout=2)
+        sock.close()
+    except (OSError, socket.error):
+        return False
+
+    # HTTP check — look for a valid response
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "formloop-sdk-py/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return r.status == 200
+    except Exception:
+        return False
+
+
+def _auto_start_local():
+    """Launch `npx formloop` in the background and wait for it to be ready."""
+    local_url = os.environ.get("FORMLOOP_LOCAL_URL", DEFAULT_LOCAL_URL)
+
+    print(
+        json.dumps({"info": "starting local formloop server", "url": local_url}),
+        file=sys.stderr,
     )
+
+    # Launch in background — survives this process
+    proc = subprocess.Popen(
+        ["npx", "formloop", "--port", str(_extract_port(local_url))],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+    # Wait up to 60s for server to be ready (first run may need to build)
+    deadline = time.time() + 60
+    while time.time() < deadline:
+        if _is_server_running(local_url):
+            print(
+                json.dumps({"info": "local server ready", "url": local_url, "pid": proc.pid}),
+                file=sys.stderr,
+            )
+            return local_url
+        time.sleep(1)
+
+    print(
+        json.dumps({"error": "local server failed to start within 60s"}),
+        file=sys.stderr,
+    )
+    proc.terminate()
+    return None
+
+
+def _extract_port(url):
+    """Extract port number from URL."""
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    return parsed.port or 3847
+
+
+def _resolve_server():
+    """Resolve which formloop server to use."""
+    # 1. Explicit override
+    explicit = os.environ.get("FORMLOOP_URL")
+    if explicit:
+        return explicit.rstrip("/")
+
+    # 2. Local server already running
+    local_url = os.environ.get("FORMLOOP_LOCAL_URL", DEFAULT_LOCAL_URL)
+    if _is_server_running(local_url):
+        return local_url.rstrip("/")
+
+    # 3. Auto-start local server
+    started = _auto_start_local()
+    if started:
+        return started.rstrip("/")
+
+    # 4. Hosted fallback
+    hosted = os.environ.get("FORMLOOP_HOSTED_URL")
+    if hosted:
+        return hosted.rstrip("/")
+
+    print(
+        json.dumps({
+            "error": "no formloop server found",
+            "hint": "set FORMLOOP_URL, start a local server with `npx formloop`, or set FORMLOOP_HOSTED_URL",
+        })
+    )
+    sys.exit(1)
+
+
+def _get_json(url):
+    req = urllib.request.Request(url, headers=_make_headers())
     with urllib.request.urlopen(req, timeout=15) as r:
         return json.loads(r.read().decode("utf-8"))
 
 
 def cmd_create(args):
+    """Create a form on the formloop engine."""
+    server = _resolve_server()
     spec = json.loads(args.spec)
-    title = spec.get("title", "Question")
-    questions = spec.get("questions", [])
-    if not questions:
-        print(json.dumps({"error": "spec.questions is empty"}))
+    if "blocks" not in spec or not isinstance(spec["blocks"], list):
+        print(json.dumps({"error": "spec.blocks must be a non-empty list"}))
         sys.exit(1)
 
-    all_blocks = form_title(title) + build_blocks(questions)
-
-    api = TallyAPI()
-    result = api._request(
-        "POST",
-        "/forms",
-        {
-            "status": "PUBLISHED",
-            "blocks": all_blocks,
-            "settings": {"language": "fr"},
-        },
+    payload = {"spec": spec}
+    req = urllib.request.Request(
+        f"{server}/api/forms",
+        method="POST",
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers=_make_headers({"Content-Type": "application/json"}),
     )
-    if not result or not result.get("id"):
-        print(json.dumps({"error": "form creation failed", "details": result}))
-        sys.exit(1)
-
-    form_id = result["id"]
     try:
-        webhook = configure_webhook(form_id)
+        with urllib.request.urlopen(req, timeout=15) as r:
+            data = json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
-        api.delete_form(form_id)
-        print(json.dumps({"error": "webhook setup failed", "code": e.code, "body": body}))
+        print(json.dumps({"error": "form creation failed", "code": e.code, "body": body}))
         sys.exit(1)
 
-    print(
-        json.dumps(
-            {
-                "form_id": form_id,
-                "form_url": f"https://tally.so/r/{form_id}",
-                "webhook_id": webhook.get("id") if isinstance(webhook, dict) else None,
-            },
-            ensure_ascii=False,
-        )
-    )
+    print(json.dumps(data, ensure_ascii=False))
 
 
 def cmd_wait(args):
+    """Poll until the form is submitted (ephemeral mode)."""
+    server = _resolve_server()
     deadline = time.time() + args.timeout
-    url = (
-        f"{BRIDGE_URL}/api/response/{args.form_id}"
-        f"?secret={WEBHOOK_SECRET}&consume=1"
-    )
+    url = f"{server}/api/response/{args.form_id}?consume=1"
+    headers = _make_headers()
+
     while time.time() < deadline:
         try:
-            with urllib.request.urlopen(url, timeout=10) as r:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as r:
                 data = json.loads(r.read().decode("utf-8"))
                 if data.get("status") == "ready":
                     print(
@@ -240,23 +214,10 @@ def cmd_wait(args):
     sys.exit(2)
 
 
-def cmd_cleanup(args):
-    api = TallyAPI()
-    api.delete_form(args.form_id)
-    print(json.dumps({"deleted": args.form_id}))
-
-
-def _get_json(url):
-    req = urllib.request.Request(url, headers={"User-Agent": "ask_form-py/1.0"})
-    with urllib.request.urlopen(req, timeout=15) as r:
-        return json.loads(r.read().decode("utf-8"))
-
-
 def cmd_list_submissions(args):
-    url = (
-        f"{BRIDGE_URL}/api/forms/{args.form_id}/submissions"
-        f"?secret={WEBHOOK_SECRET}"
-    )
+    """List all submissions of a persistent form."""
+    server = _resolve_server()
+    url = f"{server}/api/forms/{args.form_id}/submissions"
     try:
         data = _get_json(url)
     except urllib.error.HTTPError as e:
@@ -267,12 +228,11 @@ def cmd_list_submissions(args):
 
 
 def cmd_export_csv(args):
-    url = (
-        f"{BRIDGE_URL}/api/forms/{args.form_id}/export.csv"
-        f"?secret={WEBHOOK_SECRET}"
-    )
+    """Download a CSV of all submissions for a persistent form."""
+    server = _resolve_server()
+    url = f"{server}/api/forms/{args.form_id}/export.csv"
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "ask_form-py/1.0"})
+        req = urllib.request.Request(url, headers=_make_headers())
         with urllib.request.urlopen(req, timeout=30) as r:
             csv_bytes = r.read()
     except urllib.error.HTTPError as e:
@@ -288,12 +248,11 @@ def cmd_export_csv(args):
 
 
 def cmd_wait_n(args):
-    """Poll the persistent form until at least N submissions have arrived."""
+    """Poll a persistent form until at least N submissions have arrived."""
+    server = _resolve_server()
     deadline = time.time() + args.timeout
-    url = (
-        f"{BRIDGE_URL}/api/forms/{args.form_id}/submissions"
-        f"?secret={WEBHOOK_SECRET}"
-    )
+    url = f"{server}/api/forms/{args.form_id}/submissions"
+
     while time.time() < deadline:
         try:
             data = _get_json(url)
@@ -319,55 +278,21 @@ def cmd_wait_n(args):
     sys.exit(2)
 
 
-def cmd_create_custom(args):
-    """Create a form on the custom Typeform-clone engine hosted on formloop."""
-    spec = json.loads(args.spec)
-    if "blocks" not in spec or not isinstance(spec["blocks"], list):
-        print(json.dumps({"error": "spec.blocks must be a non-empty list"}))
-        sys.exit(1)
-
-    payload = {"spec": spec}
-    req = urllib.request.Request(
-        f"{BRIDGE_URL}/api/forms?secret={WEBHOOK_SECRET}",
-        method="POST",
-        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=15) as r:
-            data = json.loads(r.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
-        print(json.dumps({"error": "form creation failed", "code": e.code, "body": body}))
-        sys.exit(1)
-
-    print(json.dumps(data, ensure_ascii=False))
-
-
 def main():
-    p = argparse.ArgumentParser(description="ask_form — Tally form bridge for Claude Code")
+    p = argparse.ArgumentParser(
+        description="formloop SDK — generate forms for structured human input"
+    )
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    c = sub.add_parser("create", help="Create a Tally form with webhook (legacy)")
+    c = sub.add_parser("create", help="Create a form on the formloop engine")
     c.add_argument("--spec", required=True, help="JSON spec for the form")
     c.set_defaults(func=cmd_create)
 
-    cc = sub.add_parser(
-        "create-custom",
-        help="Create a custom form on the bridge engine (recommended)",
-    )
-    cc.add_argument("--spec", required=True, help="JSON spec for the form")
-    cc.set_defaults(func=cmd_create_custom)
-
-    w = sub.add_parser("wait", help="Poll until the form is submitted")
+    w = sub.add_parser("wait", help="Poll until the form is submitted (ephemeral)")
     w.add_argument("--form-id", required=True)
     w.add_argument("--timeout", type=int, default=1800, help="seconds (default 1800 = 30 min)")
     w.add_argument("--poll", type=int, default=5, help="poll interval seconds")
     w.set_defaults(func=cmd_wait)
-
-    cl = sub.add_parser("cleanup", help="Delete the form (and its webhook)")
-    cl.add_argument("--form-id", required=True)
-    cl.set_defaults(func=cmd_cleanup)
 
     ls = sub.add_parser(
         "list-submissions",

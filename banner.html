@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 1500px;
+    height: 500px;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background: #0f172a;
+    color: #f8fafc;
+  }
+  body {
+    background:
+      radial-gradient(circle at 12% 30%, rgba(99, 102, 241, 0.22) 0%, transparent 45%),
+      radial-gradient(circle at 88% 70%, rgba(245, 158, 11, 0.12) 0%, transparent 50%),
+      linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+    position: relative;
+    display: grid;
+    grid-template-columns: 480px 1fr;
+    gap: 0;
+    align-items: center;
+    padding: 0 70px 0 80px;
+  }
+
+  /* Subtle terminal-ish grid lines in background */
+  body::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  .left {
+    position: relative;
+    z-index: 2;
+    padding-bottom: 80px; /* reserve space for profile pic overlay */
+  }
+  .wordmark {
+    font-size: 56px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: #f8fafc;
+    margin-bottom: 12px;
+  }
+  .wordmark .dot {
+    color: #6366f1;
+  }
+  .tagline {
+    font-size: 17px;
+    line-height: 1.45;
+    color: #cbd5e1;
+    font-weight: 400;
+    max-width: 380px;
+    margin-bottom: 24px;
+  }
+  .tagline strong {
+    color: #f8fafc;
+    font-weight: 600;
+  }
+  .handle {
+    display: inline-block;
+    padding: 6px 14px;
+    background: rgba(99, 102, 241, 0.18);
+    border: 1px solid rgba(99, 102, 241, 0.45);
+    border-radius: 999px;
+    font-size: 13px;
+    color: #c7d2fe;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+
+  .right {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 18px;
+    align-items: end;
+  }
+  .prompt {
+    grid-column: 1 / -1;
+    margin-bottom: 6px;
+    color: #94a3b8;
+    font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.04em;
+  }
+  .prompt .arrow { color: #6366f1; margin-right: 8px; }
+  .prompt .q { color: #f1f5f9; }
+
+  .card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 16px;
+    color: #0f172a;
+    box-shadow:
+      0 4px 12px rgba(0,0,0,0.25),
+      0 1px 0 rgba(255,255,255,0.05) inset;
+    transform: translateY(0);
+    transition: none;
+    position: relative;
+  }
+  .card .preview {
+    height: 130px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .card .label {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .card .meta {
+    font-size: 11px;
+    color: #64748b;
+    line-height: 1.45;
+  }
+
+  /* Card variants */
+  .card.a .preview {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+  }
+  .card.a .preview .mini {
+    width: 60%;
+  }
+  .card.a .preview .line {
+    height: 6px;
+    background: #cbd5e1;
+    border-radius: 3px;
+    margin: 4px 0;
+  }
+  .card.a .preview .line.short { width: 55%; background: #94a3b8; }
+
+  .card.b .preview {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+  }
+
+  .card.c .preview {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    color: #92400e;
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    font-size: 18px;
+    letter-spacing: -0.01em;
+  }
+
+  /* Highlighted "selected" card */
+  .card.b {
+    transform: translateY(-6px) scale(1.02);
+    box-shadow:
+      0 12px 28px rgba(99, 102, 241, 0.45),
+      0 0 0 2px #6366f1;
+  }
+  .card.b::after {
+    content: '✓';
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 26px;
+    height: 26px;
+    background: #6366f1;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  /* Small corner badge */
+  .badge {
+    position: absolute;
+    top: 28px;
+    right: 70px;
+    z-index: 3;
+    padding: 6px 12px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 999px;
+    font-size: 11px;
+    color: #e2e8f0;
+    letter-spacing: 0.04em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+</style>
+</head>
+<body>
+
+<div class="badge">OSS · MIT · formloop.dev</div>
+
+<div class="left">
+  <div class="wordmark">formloop<span class="dot">.</span></div>
+  <p class="tagline">
+    Visual forms for LLM agents.<br/>
+    <strong>Visual choices, in a non-visual terminal.</strong>
+  </p>
+  <span class="handle">@Borenstejn · Building in public</span>
+</div>
+
+<div class="right">
+  <div class="prompt"><span class="arrow">▸</span><span class="q">agent.ask("Which direction feels right?")</span></div>
+
+  <div class="card a">
+    <div class="preview">
+      <div class="mini">
+        <div class="line"></div>
+        <div class="line short"></div>
+        <div class="line"></div>
+        <div class="line short"></div>
+        <div class="line"></div>
+      </div>
+    </div>
+    <div class="label">Minimal</div>
+    <div class="meta">System fonts. Thin borders. Quiet hierarchy.</div>
+  </div>
+
+  <div class="card b">
+    <div class="preview">Bold ↗</div>
+    <div class="label">Bold</div>
+    <div class="meta">Gradients. Large type. Confident.</div>
+  </div>
+
+  <div class="card c">
+    <div class="preview">Editorial</div>
+    <div class="label">Editorial</div>
+    <div class="meta">Serif. Slower rhythm. Magazine feel.</div>
+  </div>
+</div>
+
+</body>
+</html>

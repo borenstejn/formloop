@@ -30,3 +30,9 @@ coverage/
 .venv/
 venv/
 .playwright-mcp/
+
+# Claude Code context (contains personal info, not for public)
+CLAUDE.md
+
+# Internal planning docs
+x-*.html

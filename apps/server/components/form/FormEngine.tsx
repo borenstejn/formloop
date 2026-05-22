@@ -34,15 +34,31 @@ export function FormEngine({ formId, spec }: { formId: string; spec: FormSpec })
   // The first content block becomes index 1, etc.
   const respondentOffset = hasRespondentSlide ? 1 : 0;
 
-  const [index, setIndex] = useState(0);
+  const blocks = spec.blocks;
+  const totalSlides = blocks.length + respondentOffset;
+
+  // Deep-link via ?q=<question-id>: jump to the slide whose block (or nested
+  // group question) has matching id. Useful for glossary-style entry points.
+  const initialIndex = (() => {
+    if (typeof window === "undefined") return 0;
+    const qParam = new URLSearchParams(window.location.search).get("q");
+    if (!qParam) return 0;
+    const target = qParam.toLowerCase();
+    const idx = blocks.findIndex((b) => {
+      if (isQuestion(b) && b.id?.toLowerCase() === target) return true;
+      if (isGroup(b) && b.questions.some((q) => q.id?.toLowerCase() === target))
+        return true;
+      return false;
+    });
+    return idx === -1 ? 0 : idx + respondentOffset;
+  })();
+
+  const [index, setIndex] = useState(initialIndex);
   const [direction, setDirection] = useState<Direction>(1);
   const [answers, setAnswers] = useState<Answers>({});
   const [respondent, setRespondent] = useState<Respondent>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const blocks = spec.blocks;
-  const totalSlides = blocks.length + respondentOffset;
 
   // Flatten all leaf questions across blocks (groups expand their nested questions)
   const allLeafQuestions: Question[] = blocks.flatMap((b): Question[] => {

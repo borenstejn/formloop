@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { redis, specKey, SPEC_TTL_SECONDS } from "@/lib/redis";
+import { getStore, SPEC_TTL_SECONDS } from "@/lib/store";
 import { checkSecret } from "@/lib/auth";
 import { generateFormId } from "@/lib/id";
+import { parseJsonBody, isErrorResponse } from "@/lib/validate";
 import type { FormSpec, Block, RespondentField } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -98,12 +99,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { spec?: unknown } | null = null;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "invalid json" }, { status: 400 });
-  }
+  const body = await parseJsonBody<{ spec?: unknown }>(req);
+  if (isErrorResponse(body)) return body;
 
   const spec = body?.spec;
   if (!validateSpec(spec)) {
@@ -119,15 +116,14 @@ export async function POST(req: NextRequest) {
   };
 
   const formId = generateFormId();
+  const store = getStore();
 
   // Persistent forms: store spec without TTL (frozen forever).
   // Ephemeral forms (default): legacy 24h TTL.
   if (isPersistent) {
-    await redis.set(specKey(formId), JSON.stringify(normalizedSpec));
+    await store.setSpec(formId, JSON.stringify(normalizedSpec));
   } else {
-    await redis.set(specKey(formId), JSON.stringify(normalizedSpec), {
-      ex: SPEC_TTL_SECONDS,
-    });
+    await store.setSpec(formId, JSON.stringify(normalizedSpec), SPEC_TTL_SECONDS);
   }
 
   const origin =
