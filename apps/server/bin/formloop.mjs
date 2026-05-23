@@ -225,10 +225,10 @@ function cmdInstall() {
 
 async function ensureServerRunning() {
   const port = parseInt(
-    process.env.FORMLOOP_PORT || String(DEFAULT_PORT),
+    getFlagValue("--port") || process.env.FORMLOOP_PORT || String(DEFAULT_PORT),
     10
   );
-  const host = process.env.FORMLOOP_HOST || DEFAULT_HOST;
+  const host = getFlagValue("--host") || process.env.FORMLOOP_HOST || DEFAULT_HOST;
   const baseUrl = `http://${host}:${port}`;
 
   // Check if already running
