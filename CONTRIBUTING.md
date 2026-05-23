@@ -6,22 +6,48 @@ Contributions welcome — bug reports, feature ideas, PRs.
 
 ```bash
 git clone https://github.com/borenstejn/formloop.git
-cd formloop
-
-# Server
-cd apps/server
+cd formloop/apps/server
 npm install
-cp .env.example .env.local   # fill in WEBHOOK_SECRET, KV_REST_API_URL, KV_REST_API_TOKEN
-npm run dev
+npm run dev     # http://localhost:3000 (dev mode with hot reload)
+```
 
-# Python SDK
-cd ../../packages/sdk-python
-python ask_form.py --help
+No environment variables needed for local development. The server uses in-memory storage by default.
+
+## Running the built server
+
+```bash
+cd apps/server
+npm run build
+npx formloop    # http://127.0.0.1:3847 (production-like standalone)
+```
+
+## Testing the MCP server
+
+```bash
+npx formloop install    # writes MCP config to ~/.claude/settings.json
+# Restart Claude Code — formloop tools should appear
+```
+
+## End-to-end test
+
+```bash
+cd apps/server
+bash test-e2e.sh
 ```
 
 ## Project layout
 
-See [`CLAUDE.md`](./CLAUDE.md) for the full architectural context — it's written for AI assistants but works just as well for humans onboarding to the codebase.
+```
+formloop/
+  apps/server/          Next.js app (form engine + API + MCP server)
+    bin/formloop.mjs    CLI entrypoint
+    bin/mcp-server.mjs  MCP server (stdio)
+    app/                Next.js App Router pages + API routes
+    lib/                Shared utilities (store, auth, types, etc.)
+  packages/sdk-python/  Python SDK (ask_form.py)
+```
+
+See [`CLAUDE.md`](./CLAUDE.md) for the full architectural context.
 
 ## Reporting bugs
 
@@ -30,16 +56,12 @@ Open an issue with:
 - What you expected to happen
 - What actually happened (logs, screenshots)
 
-## Suggesting features
-
-Open an issue tagged `feature-request`. The simpler the proposal, the more likely it ships.
-
 ## Pull requests
 
 1. Fork the repo
 2. Create a topic branch
 3. Make your change with a clear commit message ("what + why")
-4. Run tests if relevant (TODO: setup tests)
+4. Run `bash test-e2e.sh` if your change touches the form engine
 5. Open a PR; describe what changed and why
 
 ## Code style
@@ -47,11 +69,11 @@ Open an issue tagged `feature-request`. The simpler the proposal, the more likel
 - TypeScript: `strict: true`, prefer discriminated unions, no `any`
 - React: server components by default; `"use client"` only where needed
 - Python: stdlib-first, minimal external deps
-- Commits: imperative mood, no emoji, mention "why" not just "what"
+- Commits: imperative mood, describe "why" not just "what"
 
 ## Code of Conduct
 
-Be kind. Disagreements are fine; personal attacks aren't. If you wouldn't say it to a colleague at work, don't say it here.
+Be kind. Disagreements are fine; personal attacks aren't.
 
 ## License
 

@@ -1,131 +1,73 @@
 # ROADMAP — formloop
 
-The plan to take formloop from "POC that works for me" to "OSS project with 1000+ stars."
-
-Estimated total: **4-6 weeks of focused effort**, not full-time.
+What's done, what's next.
 
 ---
 
-## Phase 0 — Pre-launch foundation (current)
+## Done
 
-**Status:** Done as of 2026-05-09. Server works, Python SDK works, end-to-end tested.
+### Core engine
 
-What's already in `apps/server/`:
-- 10 question types (mc, multi, text, textarea, yn, number, scale, html-pick, rank, scale-preview, html context)
+- 10+ question types (mc, multi, text, textarea, yn, number, scale, html-pick, rank, scale-preview, html context, group)
 - Typeform-clone UI with vertical-slide transitions, keyboard shortcuts, mobile-friendly
-- API endpoints (create, submit, retrieve)
-- Auth via shared secret
-- DOMPurify sanitization
-- Vercel deployment + Upstash Redis storage
+- Split and stack layout modes
+- API endpoints (create, submit, retrieve, list submissions, CSV export)
+- Local-first with in-memory storage (zero config)
+- Optional Upstash Redis for persistent/hosted deployments
+- DOMPurify HTML sanitization
+- Optional API auth via shared secret
+- Persistent forms with multi-respondent support
 
-What's already in `packages/sdk-python/`:
-- `ask_form.py` CLI: create-custom, wait, cleanup
-- Working against the live deployment
+### MCP server
 
----
+- Stdio transport via `@modelcontextprotocol/sdk`
+- 3 tools: `create_form`, `wait_for_response`, `list_submissions`
+- Auto-starts local HTTP server when needed
+- One-command install: `npx formloop install`
 
-## Phase 1 — Discovery & validation (3-5 days)
+### CLI
 
-Before investing 4 more weeks, validate that other people actually want this.
+- `npx formloop create --spec '{...}'` — create a form
+- `npx formloop wait --form-id <ID>` — poll for submission
+- `npx formloop list --form-id <ID>` — list persistent form submissions
+- Auto-opens form URL in browser
 
-### Tasks
+### Python SDK
 
-- [ ] **Naming validated** (current: `formloop` — verify npm + GitHub availability)
-- [ ] **Pitch refined** — get to a single clear sentence
-- [ ] **Talk to 5-10 people** in Jérôme's network who build with LLMs:
-  - Show the demo URL
-  - Ask: "Would you use this in your workflow?"
-  - Ask: "What types of questions would you ask through this?"
-  - Ask: "What's missing for you to actually adopt it?"
-- [ ] **Decision gate**: if signal is positive → continue to Phase 2. If tepid → keep as personal tool, don't invest more.
-- [ ] **Domain check**: register `formloop.dev` and/or `getformloop.com` if available
-
-### Outcome
-
-A clear go/no-go decision, plus a list of the 3-5 most-requested features from real potential users.
+- `ask_form.py` CLI with create, wait, list-submissions, export-csv, wait-n
+- Auto-detects and auto-starts local server
+- Zero external dependencies
 
 ---
 
-## Phase 2 — Productisation (1.5-2 weeks)
+## Next
 
-Make the project usable by people who aren't Jérôme.
+### Developer experience
 
-### Server side
+- [ ] TypeScript SDK (`@formloop/sdk`) — `createForm`, `waitForResponse`, `listSubmissions`
+- [ ] Examples for major agent frameworks (OpenAI Assistants, LangChain, Vercel AI SDK)
+- [ ] Form spec validation / preview mode (`?preview=1`)
+- [ ] Form templates (design-shotgun, code-review, ticket-triage, etc.)
 
-- [x] **Decouple branding** from `tally-bridge` — Vercel project renamed to `formloop` on 2026-05-13
-- [x] **Optional persistent forms**: opt-in `persistent: true` flag with multi-respondent storage, list/CSV export (Phase 1, Redis no-TTL — landed 2026-05-13)
-- [ ] **Self-hostable**: Docker Compose with `server` + `redis` for one-command local hosting
-- [ ] **Public demo**: deploy a stable demo at `formloop.dev` (or wherever)
-- [ ] **API auth flexibility**: support both shared secret AND per-form tokens
-- [ ] **Storage adapter pattern** (Phase 2): extract Redis impl behind a `FormloopStorage` interface, add Postgres adapter
-- [ ] **Decision Records concept** (Phase 3): persistent forms → ADR-style markdown + git push
+### Infrastructure
 
-### TypeScript SDK (`packages/sdk-typescript/`)
+- [ ] Docker Compose for one-command self-hosting (server + Redis)
+- [ ] GitHub Actions CI (lint, typecheck, build)
+- [ ] Vitest tests for React components
+- [ ] Pytest tests for the Python SDK
 
-- [ ] **`@formloop/sdk` npm package**: `createForm`, `waitForResponse`, `cleanup`
-- [ ] Examples for major frameworks:
-  - [ ] **Vercel AI SDK** integration
-  - [ ] **OpenAI Assistants** integration
-  - [ ] **LangChain** integration
-  - [ ] **MCP server** wrapper
-  - [ ] **Claude Code skill** (the existing one, polished)
+### Integrations
 
-### Python SDK improvements
+- [ ] Slack/Discord webhook delivery
+- [ ] Storage adapter pattern (Postgres, SQLite)
 
-- [ ] **Move config to ENV**: remove hardcoded `BRIDGE_URL` and `WEBHOOK_SECRET`
-- [ ] **Publish to PyPI**: `pip install formloop`
-- [ ] **Pythonic API beyond CLI**: `from formloop import Form; form = Form.create(...)`
+### Polish
 
-### UI / DX
-
-- [ ] **Form previews** for spec authors: `?preview=1` query param renders the form without storing in Redis
-- [ ] **Form templates** in `templates/` directory: design-shotgun, ticket-triage, prompt-tuning, code-review, weekly-1on1
-- [ ] **Slack/Discord integration**: send the form link directly via webhook (similar to HumanLayer)
-
----
-
-## Phase 3 — Polish & launch materials (1 week)
-
-Everything that makes the project look pro at first glance.
-
-- [ ] **Logo + simple identity**: a wordmark + accent color
-- [ ] **Landing page** at `formloop.dev`: pitch + demo + GIF + quickstart + docs link
-- [ ] **README hero**: animated GIF showing `html-pick` in action (this is the killer screenshot)
-- [ ] **Documentation site**: probably Mintlify or Nextra
-- [ ] **CONTRIBUTING.md**: dev setup, PR process, code style
-- [ ] **CODE_OF_CONDUCT.md**: standard
-- [ ] **GitHub issue templates**: bug, feature request
-- [ ] **GitHub Actions CI**: lint, typecheck, tests, build
-- [ ] **CHANGELOG.md**: bootstrap with current state
-- [ ] **Vitest tests** for React components
-- [ ] **Pytest tests** for the Python SDK
-
----
-
-## Phase 4 — Launch (3-5 days)
-
-The actual splash.
-
-- [ ] **Twitter/X thread** (with @anthropicai, @vercel, @humanlayer_dev tagged)
-- [ ] **Show HN** post (timing: Tuesday-Thursday morning, US time)
-- [ ] **Outreach to 5-10 AI dev influencers** with a personalized DM
-- [ ] **Blog article** (medium-format, ~1500 words) on the pattern formloop solves — could be guest-post on a popular AI dev blog
-- [ ] **Reddit posts**: r/MachineLearning, r/LocalLLaMA, r/programming
-- [ ] **Indie Hackers** post
-- [ ] **Document the launch**: track GitHub stars, traffic, issues, mentions
-
----
-
-## Phase 5 — Maintenance & iteration (ongoing)
-
-The unsexy work that determines whether the project actually grows.
-
-- [ ] **Respond to issues within 48h** for the first month
-- [ ] **Merge community PRs** (assuming they meet the bar)
-- [ ] **Weekly dev log** post for the first 4 weeks (helps with ongoing visibility)
-- [ ] **Watch metrics**: stars, npm downloads, Vercel deployment count (if hosted)
-- [ ] **Course-correct based on usage signals**: which question types do people use? Which integrations get installed? What gets reported as broken?
-- [ ] **Talk at AI engineer meetups** when appropriate
+- [ ] Documentation site (Mintlify or Nextra)
+- [ ] Logo + landing page
+- [ ] README hero GIF (html-pick in action)
+- [ ] PyPI publish (`pip install formloop`)
+- [ ] npm publish (`npx formloop`)
 
 ---
 
@@ -133,8 +75,6 @@ The unsexy work that determines whether the project actually grows.
 
 | Risk | Mitigation |
 |---|---|
-| Anthropic / OpenAI ship native equivalent | Launch fast (4-6 weeks). Position as "framework-agnostic, self-hostable" — they won't compete on those axes. |
-| Project gets confused with form builders (Tally, Typeform) | Pitch crystal-clear: "for LLM agents, not for humans filling out forms." |
-| HumanLayer encroaches on UI | Reach out, propose integration / partnership. Their delivery + our UI = strong combo. |
-| Jérôme runs out of time | Keep the OSS core minimal. Don't promise features that require ongoing work. |
-| Low launch signal | Have a fallback narrative: "useful tool I built for my own workflow, sharing it." Better than overclaiming. |
+| Platform vendors ship native equivalent | Position as framework-agnostic, self-hostable, local-first |
+| Confused with form builders (Tally, Typeform) | Pitch is clear: "for LLM agents, not for humans" |
+| HumanLayer encroaches on UI | Propose integration — their delivery + our UI |
