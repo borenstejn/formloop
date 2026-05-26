@@ -1,0 +1,21 @@
+{
+  "name": "formloop",
+  "description": "Generate Typeform-quality forms on-the-fly from your LLM agent. Embeds mockup grids, drag-and-drop, sliders with live previews. Runs 100% local via `npx formloop`.",
+  "version": "0.1.0",
+  "author": {
+    "name": "manibor",
+    "url": "https://manibor.com"
+  },
+  "homepage": "https://github.com/borenstejn/formloop",
+  "repository": "https://github.com/borenstejn/formloop",
+  "license": "MIT",
+  "keywords": [
+    "forms",
+    "human-in-the-loop",
+    "agent-tools",
+    "claude-code",
+    "claude-skills",
+    "typeform",
+    "ask-form"
+  ]
+}

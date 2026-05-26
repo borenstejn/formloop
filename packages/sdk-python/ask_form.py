@@ -208,6 +208,8 @@ def cmd_wait(args):
                 sys.exit(1)
         except urllib.error.URLError as e:
             print(json.dumps({"error": f"network error: {e}"}), file=sys.stderr)
+        except TimeoutError as e:
+            print(json.dumps({"error": f"socket timeout: {e}"}), file=sys.stderr)
         time.sleep(args.poll)
 
     print(json.dumps({"error": "timeout", "form_id": args.form_id}))
@@ -272,6 +274,8 @@ def cmd_wait_n(args):
             print(json.dumps({"error": f"poll {e.code}", "body": body}), file=sys.stderr)
         except urllib.error.URLError as e:
             print(json.dumps({"error": f"network: {e}"}), file=sys.stderr)
+        except TimeoutError as e:
+            print(json.dumps({"error": f"socket timeout: {e}"}), file=sys.stderr)
         time.sleep(args.poll)
 
     print(json.dumps({"error": "timeout", "form_id": args.form_id}))

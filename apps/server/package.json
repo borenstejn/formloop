@@ -2,6 +2,27 @@
   "name": "formloop",
   "version": "0.1.0",
   "description": "Local-first form engine for LLM agents — Typeform-quality forms generated on-the-fly",
+  "keywords": [
+    "forms",
+    "human-in-the-loop",
+    "llm",
+    "agent-tools",
+    "claude-code",
+    "typeform",
+    "ask-form",
+    "mcp"
+  ],
+  "homepage": "https://github.com/borenstejn/formloop",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/borenstejn/formloop.git",
+    "directory": "apps/server"
+  },
+  "bugs": {
+    "url": "https://github.com/borenstejn/formloop/issues"
+  },
+  "license": "MIT",
+  "author": "manibor (Jerome Borenstejn)",
   "bin": {
     "formloop": "./bin/formloop.mjs"
   },

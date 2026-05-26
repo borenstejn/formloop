@@ -1,0 +1,15 @@
+{
+  "name": "formloop",
+  "metadata": {
+    "description": "Local form engine for LLM agents — Typeform-quality forms generated on-the-fly. The missing layer when AskUserQuestion saturates and you need rich human input."
+  },
+  "owner": {
+    "name": "manibor"
+  },
+  "plugins": [
+    {
+      "name": "formloop",
+      "source": "./formloop-plugin"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "formloop",
+  "description": "Generate Typeform-quality forms on-the-fly to ask a human structured questions, then resume execution when the form is submitted. Runs 100% local via `npx formloop`.",
+  "version": "0.1.0",
+  "author": {
+    "name": "manibor",
+    "url": "https://manibor.com"
+  },
+  "homepage": "https://github.com/borenstejn/formloop",
+  "repository": "https://github.com/borenstejn/formloop",
+  "license": "MIT",
+  "keywords": [
+    "forms",
+    "human-in-the-loop",
+    "agent-tools",
+    "ask-form",
+    "typeform"
+  ],
+  "skills": "./formloop-plugin/skills/"
+}
