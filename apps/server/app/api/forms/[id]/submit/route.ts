@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStore, RESPONSE_TTL_SECONDS } from "@/lib/store";
-import { parseJsonBody, isErrorResponse } from "@/lib/validate";
+import { parseJsonBody, isErrorResponse, isValidFormId } from "@/lib/validate";
 import { generateFormId } from "@/lib/id";
 import type {
   FormSpec,
@@ -29,6 +29,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  if (!isValidFormId(id)) {
+    return NextResponse.json({ error: "invalid form id" }, { status: 400 });
+  }
   const store = getStore();
 
   const rawSpec = await store.getSpec(id);

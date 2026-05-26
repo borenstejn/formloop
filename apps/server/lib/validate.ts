@@ -38,3 +38,12 @@ export async function parseJsonBody<T = unknown>(
 export function isErrorResponse(result: unknown): result is NextResponse {
   return result instanceof NextResponse;
 }
+
+// Form IDs are generated as alphanumeric strings of length 10 (62^10 entropy).
+// 64 is a generous upper bound to defend against absurdly long ids hitting
+// store keys (would just 404 anyway, but keeps memory usage bounded).
+const FORM_ID_REGEX = /^[A-Za-z0-9]{1,64}$/;
+
+export function isValidFormId(id: unknown): id is string {
+  return typeof id === "string" && FORM_ID_REGEX.test(id);
+}

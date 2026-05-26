@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStore } from "@/lib/store";
 import { checkSecret } from "@/lib/auth";
+import { isValidFormId } from "@/lib/validate";
 import type { FormSpec, Submission } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -15,6 +16,9 @@ export async function GET(
   }
 
   const { id } = await params;
+  if (!isValidFormId(id)) {
+    return NextResponse.json({ error: "invalid form id" }, { status: 400 });
+  }
   const store = getStore();
 
   const rawSpec = await store.getSpec(id);

@@ -1,6 +1,6 @@
 {
   "name": "formloop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local-first form engine for LLM agents — Typeform-quality forms generated on-the-fly",
   "keywords": [
     "forms",

@@ -124,6 +124,25 @@ async function startServer() {
   const port = portArg ? parseInt(portArg, 10) : DEFAULT_PORT;
   const host = hostArg ?? DEFAULT_HOST;
 
+  // Refuse to bind to non-loopback without WEBHOOK_SECRET — otherwise anyone
+  // on the network can create/read/export forms. Loopback (127.0.0.1, ::1,
+  // localhost) is always safe.
+  const isLoopback =
+    host === "127.0.0.1" || host === "::1" || host === "localhost";
+  if (!isLoopback && !process.env.WEBHOOK_SECRET) {
+    console.error(
+      `\nformloop refuses to bind to ${host} without WEBHOOK_SECRET.\n` +
+        `\nBinding to a non-loopback host exposes the server to your local\n` +
+        `network (or the internet). Without WEBHOOK_SECRET, every API endpoint\n` +
+        `is open: anyone who can reach the port can read forms, list submissions,\n` +
+        `and export CSV.\n` +
+        `\nFix one of:\n` +
+        `  • Drop --host (default 127.0.0.1 is safe).\n` +
+        `  • Set WEBHOOK_SECRET=<long-random-string> in the env.\n`,
+    );
+    process.exit(1);
+  }
+
   const resolvedPort = await findPort(port, host, explicitPort);
 
   ensureBuild();
@@ -142,6 +161,10 @@ async function startServer() {
     stdio: "inherit",
     env: {
       ...process.env,
+      // Opt out of Next.js anonymous telemetry by default. Users who want it
+      // can re-enable with NEXT_TELEMETRY_DISABLED=0.
+      NEXT_TELEMETRY_DISABLED:
+        process.env.NEXT_TELEMETRY_DISABLED ?? "1",
       PORT: String(resolvedPort),
       HOSTNAME: host,
     },
@@ -251,6 +274,8 @@ async function ensureServerRunning() {
     detached: true,
     env: {
       ...process.env,
+      NEXT_TELEMETRY_DISABLED:
+        process.env.NEXT_TELEMETRY_DISABLED ?? "1",
       PORT: String(port),
       HOSTNAME: host,
     },
